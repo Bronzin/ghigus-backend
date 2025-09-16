@@ -1,0 +1,7 @@
+fastapi>=0.110.0
+uvicorn>=0.29.0
+pydantic-settings>=2.2.1
+python-docx>=0.8.11
+pandas>=2.2.1  # optional analytics utilities
+SQLAlchemy>=2.0.25
+alembic>=1.13.1
