@@ -1,0 +1,311 @@
+(.venv) P:\Github\ghigus-backend>findstr /S /N /I declarative_base app\*.py
+app\db\base_class.py:2:from sqlalchemy.orm import declarative_base
+app\db\base_class.py:3:Base = declarative_base()
+
+(.venv) P:\Github\ghigus-backend>findstr /S /N /I "Base = declarative_base" app\*.py
+app\core\config.py:4:from pydantic_settings import BaseSettings, SettingsConfigDict
+app\core\config.py:6:class Settings(BaseSettings):
+app\core\config.py:8:    app_name: str = "Ghigus API"
+app\core\config.py:11:    allowed_origins: List[str] = Field(
+app\core\config.py:12:        default_factory=lambda: [
+app\core\config.py:20:    # DB & Supabase  (campi python in minuscolo, ENV alias MAIUSCOLI)
+app\core\config.py:21:    database_url: str = Field(..., alias="DATABASE_URL")
+app\core\config.py:22:    supabase_url: str = Field(..., alias="SUPABASE_URL")
+app\core\config.py:23:    supabase_service_key: str = Field(..., alias="SUPABASE_SERVICE_KEY")
+app\core\config.py:24:    storage_bucket: str = Field("ghigus-files", alias="STORAGE_BUCKET")
+app\core\config.py:26:    model_config = SettingsConfigDict(
+app\core\config.py:27:        env_file=".env",
+app\core\config.py:28:        case_sensitive=False,
+app\core\config.py:29:        populate_by_name=True,   # usa gli alias MAIUSCOLI
+app\core\config.py:30:        extra="ignore",          # ignora chiavi extra nel .env
+app\core\config.py:33:settings = Settings()
+app\core\db.py:6:engine = create_engine(settings.database_url, pool_pre_ping=True)
+app\core\db.py:7:SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+app\core\db.py:10:    db = SessionLocal()
+app\core\supabase_client.py:1:# app/core/supabase_client.py
+app\core\supabase_client.py:3:from supabase import create_client, Client
+app\core\supabase_client.py:6:@lru_cache(maxsize=1)
+app\core\supabase_client.py:7:def get_supabase() -> Client:
+app\core\supabase_client.py:8:    """Istanzia e riusa un unico client Supabase per processo."""
+app\core\supabase_client.py:9:    return create_client(settings.supabase_url, settings.supabase_service_key)
+app\db\base.py:1:# app/db/base.py
+app\db\base.py:2:from app.db.base_class import Base  # noqa
+app\db\base_class.py:1:# app/db/base_class.py
+app\db\base_class.py:2:from sqlalchemy.orm import declarative_base
+app\db\base_class.py:3:Base = declarative_base()
+app\db\deps.py:7:    db = SessionLocal()
+app\db\session.py:6:# Esempio: settings.database_url = "postgresql+psycopg2://user:pass@host:5432/dbname"
+app\db\session.py:7:engine = create_engine(settings.database_url, pool_pre_ping=True)
+app\db\session.py:9:SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+app\main.py:12:app = FastAPI(title=settings.app_name)
+app\main.py:16:    allow_origins=settings.allowed_origins,
+app\main.py:17:    allow_credentials=True,
+app\main.py:18:    allow_methods=["*"],
+app\main.py:19:    allow_headers=["*"],
+app\main.py:22:@app.get("/health", tags=["health"])
+app\models\case.py:2:from app.db.base_class import Base
+app\models\case.py:4:class Case(Base):
+app\models\case.py:5:    __tablename__ = "cases"
+app\models\case.py:6:    id = Column(String, primary_key=True)                # string/uuid
+app\models\case.py:7:    slug = Column(String, unique=True, index=True, nullable=False)
+app\models\case.py:8:    name = Column(String, nullable=False)
+app\models\case.py:9:    company_id = Column(String, nullable=False)          # string
+app\models\case.py:10:    description = Column(Text)
+app\models\case.py:11:    status = Column(String, nullable=False, default="created")
+app\models\case_snapshot.py:2:from app.db.base_class import Base
+app\models\case_snapshot.py:4:class CaseSnapshot(Base):
+app\models\case_snapshot.py:5:    __tablename__ = "case_snapshots"  # <-- se in DB ├¿ 'case_snapshot', metti esattamente: "case_snapshot"
+app\models\case_snapshot.py:7:    id = Column(String, primary_key=True)   # uuid as str
+app\models\case_snapshot.py:8:    case_id = Column(String, index=True, nullable=False)
+app\models\case_snapshot.py:9:    xbrl_upload_id = Column(Integer, nullable=True)
+app\models\case_snapshot.py:10:    tb_upload_id = Column(Integer, nullable=True)
+app\models\case_snapshot.py:11:    canonical = Column(JSON, nullable=False)
+app\models\case_snapshot.py:12:    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+app\models\upload.py:2:from app.db.base_class import Base
+app\models\upload.py:4:class Upload(Base):
+app\models\upload.py:5:    __tablename__ = "uploads"
+app\models\upload.py:7:    id = Column(Integer, primary_key=True)
+app\models\upload.py:8:    case_id = Column(String, index=True, nullable=False)
+app\models\upload.py:9:    object_path = Column(String, nullable=False)
+app\models\upload.py:10:    original_name = Column(String, nullable=False)
+app\models\upload.py:11:    mime_type = Column(String, nullable=True)
+app\models\upload.py:12:    size_bytes = Column(Integer, nullable=False)  # se il DB ├¿ NOT NULL, meglio nullable=False
+app\models\upload.py:13:    kind = Column(String, nullable=False, default="raw")
+app\models\upload.py:14:    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+app\routers\cases.py:29:logger = logging.getLogger(__name__)
+app\routers\cases.py:31:router = APIRouter(prefix="/cases", tags=["cases"])
+app\routers\cases.py:35:    db = SessionLocal()
+app\routers\cases.py:44:    stmt = select(Case).where((Case.id == case_id) | (Case.slug == case_id)).limit(1)
+app\routers\cases.py:48:@router.post("", response_model=CaseResponse, status_code=status.HTTP_201_CREATED)
+app\routers\cases.py:49:def create_case(payload: CaseCreate, db: Session = Depends(get_db)):
+app\routers\cases.py:51:    exists = db.execute(select(Case).where(Case.slug == payload.slug)).scalar_one_or_none()
+app\routers\cases.py:53:        raise HTTPException(status_code=409, detail="slug already exists")
+app\routers\cases.py:56:    case = Case(
+app\routers\cases.py:57:        id=str(uuid4()),                   # id come stringa/uuid
+app\routers\cases.py:58:        slug=payload.slug,
+app\routers\cases.py:59:        name=payload.name,
+app\routers\cases.py:60:        company_id=str(payload.company_id) # assicurati che sia stringa
+app\routers\cases.py:70:        raise HTTPException(status_code=500, detail=f"db error: {e.__class__.__name__}: {e}")
+app\routers\cases.py:75:@router.post("/{case_id}/assumptions", status_code=status.HTTP_200_OK)
+app\routers\cases.py:76:def set_assumptions(case_id: str, payload: AssumptionsPayload, db: Session = Depends(get_db)) -> dict:
+app\routers\cases.py:77:    case = _get_case_by_any(db, case_id)
+app\routers\cases.py:79:        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+app\routers\cases.py:87:        select(Case).where((Case.id == case_id) | (Case.slug == case_id)).limit(1)
+app\routers\cases.py:90:@router.get("/{case_id}/compute", summary="Compute CNC vs LG dal canonico")
+app\routers\cases.py:91:def compute_from_canonical(case_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+app\routers\cases.py:92:    case = _get_case(db, case_id)
+app\routers\cases.py:96:    snap = db.execute(
+app\routers\cases.py:98:        .where(CaseSnapshot.case_id == case.id)
+app\routers\cases.py:105:    canonical = snap.canonical or {}
+app\routers\cases.py:106:    tb = canonical.get("tb") or {}
+app\routers\cases.py:107:    rows = int(tb.get("rows") or 0)
+app\routers\cases.py:109:    kpis: List[Dict[str, Any]] = [
+app\routers\cases.py:113:    base = max(rows, 1)
+app\routers\cases.py:114:    cnc = [
+app\routers\cases.py:115:        {"label": "Privilegiati",  "percent": 0.6, "amount": round(base * 100.0 * 0.6, 2)},
+app\routers\cases.py:116:        {"label": "Chirografari", "percent": 0.3, "amount": round(base * 100.0 * 0.3, 2)},
+app\routers\cases.py:117:        {"label": "Altri",         "percent": 0.1, "amount": round(base * 100.0 * 0.1, 2)},
+app\routers\cases.py:119:    lg = [
+app\routers\cases.py:120:        {"label": "Privilegiati",  "percent": 0.5, "amount": round(base * 100.0 * 0.5, 2)},
+app\routers\cases.py:121:        {"label": "Chirografari", "percent": 0.2, "amount": round(base * 100.0 * 0.2, 2)},
+app\routers\cases.py:122:        {"label": "Altri",         "percent": 0.1, "amount": round(base * 100.0 * 0.1, 2)},
+app\routers\cases.py:126:@router.post("/{case_id}/report", status_code=status.HTTP_201_CREATED)
+app\routers\cases.py:127:def generate_report(case_id: str, db: Session = Depends(get_db)) -> dict:
+app\routers\cases.py:128:    case = _get_case_by_any(db, case_id)
+app\routers\cases.py:130:        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+app\routers\cases_compute.py:10:router = APIRouter(prefix="/cases", tags=["cases"])
+app\routers\cases_ingest.py:14:router = APIRouter(prefix="/cases", tags=["cases"])
+app\routers\cases_ingest.py:18:        select(Case).where((Case.id == case_id) | (Case.slug == case_id)).limit(1)
+app\routers\cases_ingest.py:21:@router.get("/{case_id}/snapshots", summary="Lista snapshot")
+app\routers\cases_ingest.py:22:def list_snapshots(case_id: str, db: Session = Depends(get_db)):
+app\routers\cases_ingest.py:23:    case = _get_case(db, case_id) or _not_found()
+app\routers\cases_ingest.py:24:    q = select(
+app\routers\cases_ingest.py:27:    ).where(CaseSnapshot.case_id == case.id).order_by(desc(CaseSnapshot.created_at))
+app\routers\cases_ingest.py:28:    rows = db.execute(q).all()
+app\routers\cases_ingest.py:31:@router.get("/{case_id}/snapshots/{snapshot_id}", summary="Dettaglio snapshot")
+app\routers\cases_ingest.py:32:def get_snapshot(case_id: str, snapshot_id: str, db: Session = Depends(get_db)):
+app\routers\cases_ingest.py:33:    case = _get_case(db, case_id) or _not_found()
+app\routers\cases_ingest.py:34:    snap = db.get(CaseSnapshot, snapshot_id)
+app\routers\cases_ingest.py:35:    if not snap or snap.case_id != case.id:
+app\routers\cases_ingest.py:39:@router.post("/{case_id}/ingest", status_code=status.HTTP_201_CREATED, summary="Costruisci snapshot canonico da XBRL + TB")
+app\routers\cases_ingest.py:40:def ingest(case_id: str, db: Session = Depends(get_db)):
+app\routers\cases_ingest.py:41:    case = _get_case(db, case_id)
+app\routers\cases_ingest.py:45:    xbrl = db.execute(
+app\routers\cases_ingest.py:46:        select(Upload).where(Upload.case_id == case.id, Upload.kind == "xbrl").order_by(desc(Upload.created_at)).limit(1)
+app\routers\cases_ingest.py:48:    tb = db.execute(
+app\routers\cases_ingest.py:49:        select(Upload).where(Upload.case_id == case.id, Upload.kind == "tb").order_by(desc(Upload.created_at)).limit(1)
+app\routers\cases_ingest.py:57:    xb = download_bytes(xbrl.object_path)
+app\routers\cases_ingest.py:58:    tb_bytes = download_bytes(tb.object_path)
+app\routers\cases_ingest.py:60:    x_data = parse_xbrl_bytes(xb)
+app\routers\cases_ingest.py:61:    t_data = parse_tb_bytes(tb_bytes)
+app\routers\cases_ingest.py:63:    canonical = {
+app\routers\cases_ingest.py:69:    snap = CaseSnapshot(
+app\routers\cases_ingest.py:70:        id=str(uuid4()),
+app\routers\cases_ingest.py:71:        case_id=case.id,
+app\routers\cases_ingest.py:72:        xbrl_upload_id=xbrl.id,
+app\routers\cases_ingest.py:73:        tb_upload_id=tb.id,
+app\routers\cases_ingest.py:74:        canonical=canonical,
+app\routers\cases_ingest.py:81:@router.get("/{case_id}/canonical", summary="Leggi ultimo snapshot canonico")
+app\routers\cases_ingest.py:82:def get_canonical(case_id: str, db: Session = Depends(get_db)):
+app\routers\cases_ingest.py:83:    case = _get_case(db, case_id)
+app\routers\cases_ingest.py:87:    snap = db.execute(
+app\routers\cases_ingest.py:88:        select(CaseSnapshot).where(CaseSnapshot.case_id == case.id).order_by(desc(CaseSnapshot.created_at)).limit(1)
+app\routers\cases_upload.py:19:router = APIRouter(prefix="/cases", tags=["cases"])
+app\routers\cases_upload.py:23:    db = SessionLocal()
+app\routers\cases_upload.py:31:    case = db.execute(
+app\routers\cases_upload.py:32:        select(Case).where((Case.id == case_id) | (Case.slug == case_id)).limit(1)
+app\routers\cases_upload.py:37:@router.post("/{case_id}/upload-file", summary="Upload file", status_code=status.HTTP_201_CREATED)
+app\routers\cases_upload.py:38:async def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+app\routers\cases_upload.py:39:    real_id = _resolve_case_id(db, case_id)
+app\routers\cases_upload.py:41:        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+app\routers\cases_upload.py:43:    raw = await file.read()
+app\routers\cases_upload.py:44:    key = f"cases/{real_id}/raw/{uuid4()}_{file.filename}"
+app\routers\cases_upload.py:45:    path = upload_bytes(key, raw, content_type=file.content_type)
+app\routers\cases_upload.py:47:    up = Upload(
+app\routers\cases_upload.py:48:        case_id=real_id,
+app\routers\cases_upload.py:49:        object_path=path,
+app\routers\cases_upload.py:50:        original_name=file.filename,
+app\routers\cases_upload.py:51:        mime_type=file.content_type,
+app\routers\cases_upload.py:52:        size_bytes=len(raw),
+app\routers\cases_upload.py:67:@router.get("/{case_id}/uploads", summary="List uploads for a case")
+app\routers\cases_upload.py:68:def list_uploads(case_id: str, include_signed: bool = False, db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+app\routers\cases_upload.py:69:    real_id = _resolve_case_id(db, case_id)
+app\routers\cases_upload.py:71:        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+app\routers\cases_upload.py:73:    stmt = select(Upload).where(Upload.case_id == real_id).order_by(desc(Upload.created_at))
+app\routers\cases_upload.py:74:    rows = db.execute(stmt).scalars().all()
+app\routers\cases_upload.py:76:    items: List[Dict[str, Any]] = []
+app\routers\cases_upload.py:78:        item = {
+app\routers\cases_upload.py:87:            item["signed_url"] = signed_url(r.object_path)
+app\routers\cases_upload.py:93:        select(Case).where((Case.id == case_id) | (Case.slug == case_id)).limit(1)
+app\routers\cases_upload.py:97:    rec = Upload(
+app\routers\cases_upload.py:98:        case_id=case.id,
+app\routers\cases_upload.py:99:        object_path=path,
+app\routers\cases_upload.py:100:        original_name=f.filename,
+app\routers\cases_upload.py:101:        mime_type=f.content_type,
+app\routers\cases_upload.py:102:        size_bytes=size_bytes,
+app\routers\cases_upload.py:103:        kind=kind,
+app\routers\cases_upload.py:110:@router.post("/{case_id}/upload-xbrl", status_code=status.HTTP_201_CREATED, summary="Carica XBRL (XML)")
+app\routers\cases_upload.py:111:async def upload_xbrl(case_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+app\routers\cases_upload.py:112:    case = _get_case(db, case_id)
+app\routers\cases_upload.py:118:    data = await file.read()
+app\routers\cases_upload.py:119:    size_bytes = len(data)
+app\routers\cases_upload.py:121:    key = f"cases/{case.id}/xbrl/{uuid4()}_{file.filename}"
+app\routers\cases_upload.py:122:    upload_bytes(key, data, content_type=file.content_type, upsert=True)
+app\routers\cases_upload.py:123:    rec = _store_upload(db, case, key, file, kind="xbrl", size_bytes=size_bytes)
+app\routers\cases_upload.py:126:@router.post("/{case_id}/upload-tb", status_code=status.HTTP_201_CREATED, summary="Carica bilancio contabile (CSV/XLSX)")
+app\routers\cases_upload.py:127:async def upload_tb(case_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+app\routers\cases_upload.py:128:    case = _get_case(db, case_id)
+app\routers\cases_upload.py:138:    data = await file.read()
+app\routers\cases_upload.py:139:    size_bytes = len(data)
+app\routers\cases_upload.py:141:    key = f"cases/{case.id}/tb/{uuid4()}_{file.filename}"
+app\routers\cases_upload.py:142:    upload_bytes(key, data, content_type=file.content_type, upsert=True)
+app\routers\cases_upload.py:143:    rec = _store_upload(db, case, key, file, kind="tb", size_bytes=size_bytes)
+app\routers\debug.py:8:from app.core.supabase_client import get_supabase
+app\routers\debug.py:10:router = APIRouter(prefix="/debug", tags=["debug"])
+app\routers\debug.py:11:log = logging.getLogger("uvicorn.error")
+app\routers\debug.py:12:SAFE_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+app\routers\debug.py:15:    base = name.split("/")[-1].split("\\")[-1]
+app\routers\debug.py:16:    return SAFE_CHARS.sub("_", base) or "file"
+app\routers\debug.py:19:async def debug_upload(file: UploadFile = File(...)):
+app\routers\debug.py:21:        MAX_SIZE = 50 * 1024 * 1024  # 50MB piano Free
+app\routers\debug.py:22:        ALLOWED = {"xbrl", "xml", "csv", "zip", "docx", "pdf"}
+app\routers\debug.py:26:        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+app\routers\debug.py:30:        data = await file.read()
+app\routers\debug.py:34:        safe = sanitize_filename(file.filename)
+app\routers\debug.py:35:        path = f"cases/debug/raw/{uuid4()}_{safe}"
+app\routers\debug.py:37:        upload_file(path, data, content_type=file.content_type or "application/octet-stream", upsert=True)
+app\routers\debug.py:38:        url = signed_url(path, expires_in=3600)
+app\routers\debug.py:46:        raise HTTPException(status_code=500, detail=str(e))
+app\routers\debug.py:51:    sb = get_supabase()
+app\routers\debug.py:52:    res = sb.storage.from_(settings.storage_bucket).list(path="")
+app\routers\debug.py:54:        "supabase_url_ok": bool(settings.supabase_url),
+app\schemas\cases.py:4:from pydantic import BaseModel, Field
+app\schemas\cases.py:7:class CreateCaseRequest(BaseModel):
+app\schemas\cases.py:8:    slug: str = Field(..., max_length=64)
+app\schemas\cases.py:11:    description: Optional[str] = None
+app\schemas\cases.py:14:class CaseResponse(BaseModel):
+app\schemas\cases.py:19:    description: Optional[str] = None
+app\schemas\cases.py:20:    status: str = "created"
+app\schemas\cases.py:23:        from_attributes = True
+app\schemas\cases.py:25:class CaseCreate(BaseModel):
+app\schemas\cases.py:30:class CaseResponse(BaseModel):
+app\schemas\cases.py:35:    status: str | None = None
+app\schemas\cases.py:36:    description: str | None = None
+app\schemas\cases.py:38:        from_attributes = True  # (pydantic v2)
+app\schemas\cases.py:41:class AssumptionsPayload(BaseModel):
+app\schemas\cases.py:45:class ComputeResult(BaseModel):
+app\schemas\compute.py:3:from pydantic import BaseModel
+app\schemas\compute.py:5:Trend = Literal["up", "down", "flat"]
+app\schemas\compute.py:7:class KPI(BaseModel):
+app\schemas\compute.py:11:    unit: Optional[str] = None
+app\schemas\compute.py:12:    trend: Optional[Trend] = None
+app\schemas\compute.py:13:    change: Optional[float] = None
+app\schemas\compute.py:15:class DistributionItem(BaseModel):
+app\schemas\compute.py:20:class ComputeResult(BaseModel):
+app\schemas\compute.py:24:    source_file: Optional[dict] = None  # upload_id, path, signed_url
+app\schemas\compute.py:25:    notes: Optional[str] = None
+app\services\ingest.py:8:    sniffer = csv.Sniffer()
+app\services\ingest.py:10:        dialect = sniffer.sniff(text[:2048])
+app\services\ingest.py:13:            delimiter = ','
+app\services\ingest.py:14:        dialect = SimpleDialect()
+app\services\ingest.py:27:    text = data.decode("utf-8", errors="ignore")
+app\services\ingest.py:28:    dialect = sniff_csv(text)
+app\services\ingest.py:29:    f = io.StringIO(text)
+app\services\ingest.py:30:    reader = csv.reader(f, dialect)
+app\services\ingest.py:32:    rows: List[List[str]] = list(reader)
+app\services\ingest.py:36:    headers: List[str] = []
+app\services\ingest.py:37:    body: List[List[str]] = rows
+app\services\ingest.py:40:    first = rows[0]
+app\services\ingest.py:41:    looks_like_header = all(not cell.strip().isdigit() for cell in first)
+app\services\ingest.py:43:        headers = [h.strip() for h in first]
+app\services\ingest.py:44:        body = rows[1:]
+app\services\ingest.py:47:    candidates = {"amount", "importo", "value", "valore", "ricavi", "revenue", "revenues"}
+app\services\ingest.py:48:    amount_idx: Optional[int] = None
+app\services\ingest.py:50:        lower = [h.lower() for h in headers]
+app\services\ingest.py:53:                amount_idx = i
+app\services\ingest.py:56:    total_amount: Optional[float] = None
+app\services\ingest.py:58:        s = 0.0
+app\services\ingest.py:62:                val = r[amount_idx].replace(".", "").replace(",", ".")
+app\services\ingest.py:63:                s += float(val)
+app\services\ingest.py:66:        total_amount = round(s, 2)
+app\services\storage.py:7:BUCKET = settings.storage_bucket
+app\services\storage.py:9:# Tenteremo prima con 'supabase' (v2). In fallback 'storage3'.
+app\services\storage.py:10:_sb_create_client = None
+app\services\storage.py:11:_st_create_client = None
+app\services\storage.py:14:    from supabase import create_client as _supabase_create_client  # supabase-py v2
+app\services\storage.py:15:    _sb_create_client = _supabase_create_client
+app\services\storage.py:17:    _sb_create_client = None
+app\services\storage.py:22:        _st_create_client = _storage3_create_client
+app\services\storage.py:24:        _st_create_client = None
+app\services\storage.py:26:_client_singleton: Any = None
+app\services\storage.py:30:    """Crea/fornisce un client Supabase sincrono, compatibile con 'supabase' o 'storage3'."""
+app\services\storage.py:35:    url = settings.supabase_url
+app\services\storage.py:36:    key = settings.supabase_service_key
+app\services\storage.py:39:        # supabase-py v2: firma = create_client(url, key)
+app\services\storage.py:40:        _client_singleton = _sb_create_client(url, key)
+app\services\storage.py:44:        # storage3: alcune versioni richiedono is_async=False, altre no
+app\services\storage.py:46:            _client_singleton = _st_create_client(url, key, is_async=False)
+app\services\storage.py:48:            _client_singleton = _st_create_client(url, key)
+app\services\storage.py:51:    raise RuntimeError("Nessun client Supabase trovato. Installa 'supabase' oppure 'storage3'.")
+app\services\storage.py:54:def upload_bytes(path: str, data: bytes, content_type: Optional[str] = None, upsert: bool = True) -> str:
+app\services\storage.py:56:    file_options: Dict[str, Any] = {}
+app\services\storage.py:58:        file_options["contentType"] = content_type
+app\services\storage.py:62:        file_options["upsert"] = "true"
+app\services\storage.py:64:        file_options["upsert"] = "false"
+app\services\storage.py:67:    _client().storage.from_(BUCKET).upload(path, data, file_options=file_options)
+app\services\storage.py:73:    Compatibile con 'supabase' e 'storage3'.
+app\services\storage.py:75:    res = _client().storage.from_(BUCKET).download(path)
+app\services\storage.py:85:    data = getattr(res, "data", None)
+app\services\storage.py:95:    content_type: Optional[str] = None,
+app\services\storage.py:96:    upsert: bool = True,
+app\services\storage.py:105:        data = file_or_bytes
+app\services\storage.py:107:        data = file_or_bytes.read()
+app\services\storage.py:110:            data = fh.read()
+app\services\storage.py:111:    return upload_bytes(path, data, content_type=content_type, upsert=upsert)
+app\services\storage.py:114:def signed_url(path: str, expires_in: int = 600) -> str:
+app\services\storage.py:116:    res = _client().storage.from_(BUCKET).create_signed_url(path, expires_in)
+app\services\tb_ingest.py:5:    text = data.decode("utf-8", errors="ignore")
+app\services\tb_ingest.py:6:    f = io.StringIO(text)
+app\services\tb_ingest.py:7:    rows = list(csv.reader(f))
+app\services\tb_ingest.py:8:    headers = rows[0] if rows else []
+app\services\tb_ingest.py:9:    body = rows[1:] if rows else []

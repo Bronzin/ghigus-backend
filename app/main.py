@@ -3,7 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import cases
+from app.routers import cases, debug, cases_upload, cases_ingest
+from app.routers import cases_compute 
+
+
+
 
 app = FastAPI(title=settings.app_name)
 
@@ -15,11 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/health", tags=["health"])
 def healthcheck() -> dict[str, str]:
     """Simple health check endpoint."""
     return {"status": "ok"}
 
-
 app.include_router(cases.router)
+app.include_router(debug.router)
+app.include_router(cases_upload.router)
+app.include_router(cases_ingest.router)
