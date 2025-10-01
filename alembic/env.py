@@ -8,6 +8,22 @@ import sys
 from importlib import import_module
 from pathlib import Path
 
+
+# ...
+# Carica .env
+try:
+    from dotenv import load_dotenv, find_dotenv
+    _path = find_dotenv()
+    if _path:
+        load_dotenv(_path)
+except Exception:
+    pass
+
+# Se DATABASE_URL è presente, usa quella per Alembic
+db_url = os.getenv("DATABASE_URL") or os.getenv("DB_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
+
 ROOT = Path(__file__).resolve().parents[1]  # .../ghigus-backend
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

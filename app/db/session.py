@@ -1,10 +1,36 @@
 # app/db/session.py
+import os
+from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
 
-# Esempio: settings.database_url = "postgresql+psycopg2://user:pass@host:5432/dbname"
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# Carica .env (se presente)
+try:
+    from dotenv import load_dotenv, find_dotenv
+    _path = find_dotenv()
+    if _path:
+        load_dotenv(_path)
+except Exception:
+    # ok se manca python-dotenv in ambienti dove l'ENV è già settata
+    pass
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DB_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL non impostata. Aggiungila nel file .env o come variabile d'ambiente."
+    )
 
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    future=True,
+)
+
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+def get_db() -> Generator:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
