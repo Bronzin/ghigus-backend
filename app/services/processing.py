@@ -20,15 +20,31 @@ def clear_staging(db: Session, case_id: str) -> None:
     db.commit()
 
 def stage_tb(db: Session, case_id: str, rows: Iterable[Dict]) -> int:
+    """
+    Staging del Bilancio Contabile.
+    Regola importi:
+      entry_amount = amount se presente, altrimenti (credit - debit)
+    """
     count = 0
     for r in rows:
-        debit: Decimal = r.get("debit") or Decimal(0)
-        credit: Decimal = r.get("credit") or Decimal(0)
-        amount = credit - debit
+        # valori numerici “safe”
+        debit = r.get("debit") or Decimal(0)
+        credit = r.get("credit") or Decimal(0)
+
+        amount = r.get("amount")
+        if amount is None:
+            amount = credit - debit
+        # normalizza eventuali tipi non-Decimal
+        if not isinstance(amount, Decimal):
+            try:
+                amount = Decimal(str(amount))
+            except Exception:
+                amount = Decimal(0)
+
         db.add(
             TBEntry(
                 case_id=case_id,
-                account_code=str(r.get("account_code")).strip(),
+                account_code=str(r.get("account_code") or "").strip(),
                 account_name=(r.get("account_name") or None),
                 debit=debit,
                 credit=credit,
@@ -36,8 +52,10 @@ def stage_tb(db: Session, case_id: str, rows: Iterable[Dict]) -> int:
             )
         )
         count += 1
+
     db.commit()
     return count
+
 
 def stage_xbrl(db: Session, case_id: str, facts: Iterable[Dict]) -> int:
     count = 0

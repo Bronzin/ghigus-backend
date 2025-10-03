@@ -98,12 +98,11 @@ def _insert_upload_dynamic(db: Session, *, slug: str, kind: str, rel_path: str, 
     db.execute(sql, data)
     db.commit()
 
+
 # -----------------------------
-# Upload Bilancio Contabile (BC) — alias legacy /upload-tb
+# Upload Bilancio Contabile (BC)
 # -----------------------------
-@router.post("/cases/{slug}/upload-tb")
-@router.post("/cases/{slug}/upload-bc")
-async def upload_bc(slug: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def _upload_bc_common(slug: str, file: UploadFile, db: Session) -> dict:
     if not _case_exists(db, slug):
         raise HTTPException(status_code=404, detail="Case not found")
     if not file:
@@ -122,6 +121,16 @@ async def upload_bc(slug: str, file: UploadFile = File(...), db: Session = Depen
         "mime_type": (file.content_type or mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"),
         "size_bytes": size,
     }
+
+@router.post("/cases/{slug}/upload-bc")
+async def upload_bc(slug: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    return await _upload_bc_common(slug, file, db)
+
+# Alias legacy: /upload-tb
+@router.post("/cases/{slug}/upload-tb")
+async def upload_tb(slug: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    return await _upload_bc_common(slug, file, db)
+
 
 # -----------------------------
 # Upload XBRL (XML/XBRL)

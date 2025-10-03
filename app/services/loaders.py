@@ -64,23 +64,72 @@ def get_latest_upload_path(db: Session, case_slug: str, kinds: Tuple[str, ...]) 
 # ---------------------------------------------------------
 def parse_tb_csv(file_path: str) -> Iterable[Dict]:
     """
-    Atteso header: account_code,account_name,debit,credit
+    Legge il Bilancio Contabile (BC) da CSV.
+
+    Colonne attese (case-insensitive, alias supportati):
+      - account_code  (alias: Account, code)
+      - account_name  (alias: Description, name)
+      - debit         (alias: Debit, Dare)
+      - credit        (alias: Credit, Avere)
+      - amount        (alias: Amount, importo, valore, value, revenues, ricavi)  [opzionale]
+      - period_end    (alias: date, data, periodend, period-end)                 [opzionale]
+
+    Regola importi:
+      entry_amount = COALESCE(amount, credit - debit)
     """
+    import csv
+    from typing import Optional
+    from decimal import Decimal
+
+    # 1) Sniff delimitatore (virgola / punto e virgola) mantenendo utf-8-sig
     with open(file_path, "r", encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
+        sample = f.read(4096)
+        f.seek(0)
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=";,")
+            delimiter = dialect.delimiter
+        except Exception:
+            delimiter = ","  # fallback
+
+        reader = csv.DictReader(f, delimiter=delimiter)
         for r in reader:
+            # --- Normalizzazione campi base
             code = (r.get("account_code") or r.get("Account") or r.get("code") or "").strip()
-            name = (r.get("account_name") or r.get("Description") or r.get("name") or "").strip()
-            debit = _to_decimal(r.get("debit") or r.get("Debit") or r.get("Dare"))
-            credit = _to_decimal(r.get("credit") or r.get("Credit") or r.get("Avere"))
             if not code:
                 continue
+
+            name_raw = (r.get("account_name") or r.get("Description") or r.get("name") or "")
+            name = name_raw.strip() or None
+
+            debit = _to_decimal(r.get("debit") or r.get("Debit") or r.get("Dare"))
+            credit = _to_decimal(r.get("credit") or r.get("Credit") or r.get("Avere"))
+
+            # --- amount opzionale: usa se presente e parsabile
+            raw_amount = (
+                r.get("amount")  or r.get("Amount")  or r.get("importo") or r.get("valore")
+                or r.get("value") or r.get("revenues") or r.get("ricavi")
+            )
+            amount: Optional[Decimal] = _to_decimal(raw_amount) if raw_amount not in (None, "") else None
+
+            # --- period_end opzionale (lascia stringa così com'è; validazione a valle)
+            period_end = (
+                r.get("period_end") or r.get("date") or r.get("data")
+                or r.get("periodend") or r.get("period-end") or ""
+            )
+            period_end = period_end.strip() or None
+
+            # --- entry amount: COALESCE(amount, credit - debit)
+            entry_amount: Decimal = amount if amount is not None else (credit or Decimal(0)) - (debit or Decimal(0))
+
             yield {
                 "account_code": code,
-                "account_name": name or None,
+                "account_name": name,
                 "debit": debit or Decimal(0),
                 "credit": credit or Decimal(0),
+                "amount": entry_amount,
+                "period_end": period_end,
             }
+
 
 # ---------------------------------------------------------
 # XBRL (XML) parser minimale
