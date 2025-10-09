@@ -1,0 +1,100 @@
+case_id;account_code;account_name;amount;period_end
+stellantis;40000;Ricavi vendite;120000;2024-01-31
+stellantis;50000;Acquisti materie prime;-48000;2024-01-31
+stellantis;52000;Stipendi e salari;-22000;2024-01-31
+stellantis;53000;Affitti e canoni;-6000;2024-01-31
+stellantis;54000;Imposte e tasse;-4000;2024-01-31
+stellantis;12000;Variazione crediti clienti (+ incremento);3000;2024-01-31
+stellantis;22000;Variazione debiti fornitori (+ incremento);-2000;2024-01-31
+stellantis;80000;Nuovo finanziamento bancario;20000;2024-01-31
+stellantis;10200;Banca Intesa C/C movimenti;25000;2024-01-31
+stellantis;10210;Banca Intesa Interessi;-200;2024-01-31
+stellantis;10220;Banca Intesa Commissioni;-60;2024-01-31
+stellantis;10299;Banca Intesa Saldo Contabile;51000;2024-01-31
+stellantis;10300;UniCredit C/C movimenti;-8000;2024-01-31
+stellantis;10310;UniCredit Interessi;-150;2024-01-31
+stellantis;10320;UniCredit Commissioni;-50;2024-01-31
+stellantis;10399;UniCredit Saldo Contabile;30800;2024-01-31
+stellantis;40000;Ricavi vendite;120000;2024-02-29
+stellantis;50000;Acquisti materie prime;-48000;2024-02-29
+stellantis;52000;Stipendi e salari;-22000;2024-02-29
+stellantis;53000;Affitti e canoni;-6000;2024-02-29
+stellantis;54000;Imposte e tasse;-4000;2024-02-29
+stellantis;12000;Variazione crediti clienti (+ incremento);-5000;2024-02-29
+stellantis;22000;Variazione debiti fornitori (+ incremento);4000;2024-02-29
+stellantis;70100;Cessione beni (disinvestimenti);5000;2024-02-29
+stellantis;10200;Banca Intesa C/C movimenti;-12000;2024-02-29
+stellantis;10210;Banca Intesa Interessi;-300;2024-02-29
+stellantis;10220;Banca Intesa Commissioni;-90;2024-02-29
+stellantis;10299;Banca Intesa Saldo Contabile;52000;2024-02-29
+stellantis;10300;UniCredit C/C movimenti;10000;2024-02-29
+stellantis;10310;UniCredit Interessi;-200;2024-02-29
+stellantis;10320;UniCredit Commissioni;-70;2024-02-29
+stellantis;10399;UniCredit Saldo Contabile;31600;2024-02-29
+stellantis;40000;Ricavi vendite;120000;2024-03-31
+stellantis;50000;Acquisti materie prime;-48000;2024-03-31
+stellantis;52000;Stipendi e salari;-22000;2024-03-31
+stellantis;53000;Affitti e canoni;-6000;2024-03-31
+stellantis;54000;Imposte e tasse;-4000;2024-03-31
+stellantis;12000;Variazione crediti clienti (+ incremento);3000;2024-03-31
+stellantis;22000;Variazione debiti fornitori (+ incremento);-2000;2024-03-31
+stellantis;70000;Acquisto immobilizzazioni (CAPEX);-15000;2024-03-31
+stellantis;80010;Rimborso finanziamento bancario;-7000;2024-03-31
+stellantis;10200;Banca Intesa C/C movimenti;8000;2024-03-31
+stellantis;10210;Banca Intesa Interessi;-600;2024-03-31
+stellantis;10220;Banca Intesa Commissioni;-150;2024-03-31
+stellantis;10299;Banca Intesa Saldo Contabile;53000;2024-03-31
+stellantis;10300;UniCredit C/C movimenti;-5000;2024-03-31
+stellantis;10310;UniCredit Interessi;-400;2024-03-31
+stellantis;10320;UniCredit Commissioni;-120;2024-03-31
+stellantis;10399;UniCredit Saldo Contabile;32400;2024-03-31
+stellantis;40000;Ricavi vendite;120000;2024-04-30
+stellantis;50000;Acquisti materie prime;-48000;2024-04-30
+stellantis;52000;Stipendi e salari;-22000;2024-04-30
+stellantis;53000;Affitti e canoni;-6000;2024-04-30
+stellantis;54000;Imposte e tasse;-4000;2024-04-30
+stellantis;12000;Variazione crediti clienti (+ incremento);-5000;2024-04-30
+stellantis;22000;Variazione debiti fornitori (+ incremento);4000;2024-04-30
+stellantis;80000;Nuovo finanziamento bancario;20000;2024-04-30
+stellantis;10200;Banca Intesa C/C movimenti;25000;2024-04-30
+stellantis;10210;Banca Intesa Interessi;-200;2024-04-30
+stellantis;10220;Banca Intesa Commissioni;-60;2024-04-30
+stellantis;10299;Banca Intesa Saldo Contabile;54000;2024-04-30
+stellantis;10300;UniCredit C/C movimenti;-8000;2024-04-30
+stellantis;10310;UniCredit Interessi;-150;2024-04-30
+stellantis;10320;UniCredit Commissioni;-50;2024-04-30
+stellantis;10399;UniCredit Saldo Contabile;33200;2024-04-30
+stellantis;40000;Ricavi vendite;120000;2024-05-31
+stellantis;50000;Acquisti materie prime;-48000;2024-05-31
+stellantis;52000;Stipendi e salari;-22000;2024-05-31
+stellantis;53000;Affitti e canoni;-6000;2024-05-31
+stellantis;54000;Imposte e tasse;-4000;2024-05-31
+stellantis;12000;Variazione crediti clienti (+ incremento);3000;2024-05-31
+stellantis;22000;Variazione debiti fornitori (+ incremento);-2000;2024-05-31
+stellantis;70100;Cessione beni (disinvestimenti);5000;2024-05-31
+stellantis;10200;Banca Intesa C/C movimenti;-12000;2024-05-31
+stellantis;10210;Banca Intesa Interessi;-300;2024-05-31
+stellantis;10220;Banca Intesa Commissioni;-90;2024-05-31
+stellantis;10299;Banca Intesa Saldo Contabile;55000;2024-05-31
+stellantis;10300;UniCredit C/C movimenti;10000;2024-05-31
+stellantis;10310;UniCredit Interessi;-200;2024-05-31
+stellantis;10320;UniCredit Commissioni;-70;2024-05-31
+stellantis;10399;UniCredit Saldo Contabile;34000;2024-05-31
+stellantis;40000;Ricavi vendite;120000;2024-06-30
+stellantis;50000;Acquisti materie prime;-48000;2024-06-30
+stellantis;52000;Stipendi e salari;-22000;2024-06-30
+stellantis;53000;Affitti e canoni;-6000;2024-06-30
+stellantis;54000;Imposte e tasse;-4000;2024-06-30
+stellantis;12000;Variazione crediti clienti (+ incremento);-5000;2024-06-30
+stellantis;22000;Variazione debiti fornitori (+ incremento);4000;2024-06-30
+stellantis;70000;Acquisto immobilizzazioni (CAPEX);-15000;2024-06-30
+stellantis;80010;Rimborso finanziamento bancario;-7000;2024-06-30
+stellantis;80020;Dividendi pagati;-3000;2024-06-30
+stellantis;10200;Banca Intesa C/C movimenti;-6000;2024-06-30
+stellantis;10210;Banca Intesa Interessi;-600;2024-06-30
+stellantis;10220;Banca Intesa Commissioni;-150;2024-06-30
+stellantis;10299;Banca Intesa Saldo Contabile;56000;2024-06-30
+stellantis;10300;UniCredit C/C movimenti;7000;2024-06-30
+stellantis;10310;UniCredit Interessi;-400;2024-06-30
+stellantis;10320;UniCredit Commissioni;-120;2024-06-30
+stellantis;10399;UniCredit Saldo Contabile;34800;2024-06-30
