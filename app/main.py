@@ -87,3 +87,60 @@ try:
     app.include_router(maps_router)
 except Exception as e:
     print("Warn: maps router not loaded:", e)
+
+# ----------------------------
+# 5) MDM Routers
+# ----------------------------
+try:
+    from app.api.routers.assumptions import router as assumptions_router
+    app.include_router(assumptions_router)
+except Exception as e:
+    print("Warn: assumptions router not loaded:", e)
+
+try:
+    from app.api.routers.attivo import router as attivo_router
+    app.include_router(attivo_router)
+except Exception as e:
+    print("Warn: attivo router not loaded:", e)
+
+try:
+    from app.api.routers.passivo import router as passivo_router
+    app.include_router(passivo_router)
+except Exception as e:
+    print("Warn: passivo router not loaded:", e)
+
+try:
+    from app.api.routers.liquidazione import router as liquidazione_router
+    app.include_router(liquidazione_router)
+except Exception as e:
+    print("Warn: liquidazione router not loaded:", e)
+
+try:
+    from app.api.routers.auxiliary import router as auxiliary_router
+    app.include_router(auxiliary_router)
+except Exception as e:
+    print("Warn: auxiliary router not loaded:", e)
+
+try:
+    from app.api.routers.projections import router as projections_router
+    app.include_router(projections_router)
+except Exception as e:
+    print("Warn: projections router not loaded:", e)
+
+try:
+    from app.api.routers.concordato import router as concordato_router
+    app.include_router(concordato_router)
+except Exception as e:
+    print("Warn: concordato router not loaded:", e)
+
+try:
+    from app.api.routers.cruscotto import router as cruscotto_router
+    app.include_router(cruscotto_router)
+except Exception as e:
+    print("Warn: cruscotto router not loaded:", e)
+
+try:
+    from app.api.routers.scenarios import router as scenarios_router
+    app.include_router(scenarios_router)
+except Exception as e:
+    print("Warn: scenarios router not loaded:", e)
