@@ -210,9 +210,12 @@ def compute_ce_projections(
     drivers = assumptions.ce_drivers.lines  # Dict[str, CeLineDriver]
 
     # ── 1. Carica basi annue dal CE riclassificato ──
+    # I codici nel DB hanno prefisso "CE_" (es. CE_RICAVI) → lo rimuoviamo
     ce_base: Dict[str, D] = {}
     for row in db.query(CeRiclass).filter(CeRiclass.case_id == case_id).all():
         code = row.riclass_code
+        if code.startswith("CE_"):
+            code = code[3:]
         ce_base[code] = ce_base.get(code, ZERO) + (row.amount or ZERO)
 
     # Applica override dalle assumptions se presenti

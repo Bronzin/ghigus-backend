@@ -33,8 +33,21 @@ ATTIVO_CATEGORIES = [
     "ALTRO_ATTIVO",
 ]
 
-# Mapping riclass_code prefix -> attivo category (semplificato)
+# Mapping riclass_code (senza prefisso SP_) -> attivo category
+# Supporta sia codici flat (CREDITI, RIMANENZE) sia gerarchici (A1.1, A2.2)
 _RICLASS_TO_CATEGORY: Dict[str, str] = {
+    # Codici flat (dal maps_sp_ready.csv)
+    "LIQUIDITA_E_ESIGIBILITA_IMMEDIATE": "DISPONIBILITA_LIQUIDE",
+    "CREDITI": "CREDITI_COMMERCIALI",
+    "RIMANENZE": "RIMANENZE",
+    "RATEI_E_RISCONTI": "RATEI_RISCONTI_ATTIVI",
+    "IMMOBILIZZAZIONI_IMMATERIALI": "IMMOBILIZZAZIONI_IMMATERIALI",
+    "IMMOBILIZZAZIONI_MATERIALI": "IMMOBILIZZAZIONI_MATERIALI",
+    "IMMOBILIZZAZIONI_FINANZIARIE": "IMMOBILIZZAZIONI_FINANZIARIE",
+    "IMMOBILIZZAZIONI_LEASING": "IMMOBILIZZAZIONI_MATERIALI",
+    "F_DO_AMM_TO_IMM_NI_IMMATERIALI": "IMMOBILIZZAZIONI_IMMATERIALI",
+    "F_DO_AMM_TO_IMM_NI_MATERIALI": "IMMOBILIZZAZIONI_MATERIALI",
+    # Codici gerarchici (legacy)
     "A1.1": "DISPONIBILITA_LIQUIDE",
     "A1.2": "CREDITI_COMMERCIALI",
     "A1.3": "RIMANENZE",
@@ -49,14 +62,38 @@ _RICLASS_TO_CATEGORY: Dict[str, str] = {
     "A2.5": "AVVIAMENTO",
 }
 
+# Codici riclass che rappresentano attivo (senza prefisso SP_)
+_ATTIVO_CODES = set([
+    "LIQUIDITA_E_ESIGIBILITA_IMMEDIATE", "CREDITI", "RIMANENZE",
+    "RATEI_E_RISCONTI", "IMMOBILIZZAZIONI_IMMATERIALI", "IMMOBILIZZAZIONI_MATERIALI",
+    "IMMOBILIZZAZIONI_FINANZIARIE", "IMMOBILIZZAZIONI_LEASING",
+    "F_DO_AMM_TO_IMM_NI_IMMATERIALI", "F_DO_AMM_TO_IMM_NI_MATERIALI",
+])
+
+
+def _normalize_code(riclass_code: str) -> str:
+    """Rimuove il prefisso SP_ se presente."""
+    if riclass_code.startswith("SP_"):
+        return riclass_code[3:]
+    return riclass_code
+
+
+def _is_attivo_code(riclass_code: str) -> bool:
+    """Determina se un riclass_code è un attivo."""
+    code = _normalize_code(riclass_code)
+    return code in _ATTIVO_CODES or code.startswith("A")
+
 
 def _map_riclass_to_category(riclass_code: str) -> str:
     """Mappa un riclass_code alla categoria attivo più specifica."""
+    code = _normalize_code(riclass_code)
+    # Lookup diretto
+    if code in _RICLASS_TO_CATEGORY:
+        return _RICLASS_TO_CATEGORY[code]
+    # Prefix match (per codici gerarchici)
     for prefix, cat in sorted(_RICLASS_TO_CATEGORY.items(), key=lambda x: -len(x[0])):
-        if riclass_code.startswith(prefix):
+        if code.startswith(prefix):
             return cat
-    if riclass_code.startswith("A"):
-        return "ALTRO_ATTIVO"
     return "ALTRO_ATTIVO"
 
 
@@ -70,14 +107,12 @@ def seed_attivo_from_riclass(db: Session, case_id: str, scenario_id: str = "base
         MdmAttivoItem.scenario_id == scenario_id,
     ).delete()
 
-    riclass_rows = (
-        db.query(SpRiclass)
-        .filter(SpRiclass.case_id == case_id, SpRiclass.riclass_code.startswith("A"))
-        .all()
-    )
+    riclass_rows = db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all()
 
     count = 0
     for row in riclass_rows:
+        if not _is_attivo_code(row.riclass_code):
+            continue
         category = _map_riclass_to_category(row.riclass_code)
         item = MdmAttivoItem(
             case_id=case_id,

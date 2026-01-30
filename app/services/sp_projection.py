@@ -75,9 +75,12 @@ def compute_sp_projections(db: Session, case_id: str, scenario_id: str = "base")
     pct_breve = D(str(sp_drv.pct_debiti_breve)) / 100
 
     # ── 1. Carica SP riclassificato (valori iniziali) ──
+    # I codici nel DB hanno prefisso "SP_" (es. SP_CREDITI) → lo rimuoviamo
     sp_data: Dict[str, D] = {}
     for row in db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all():
         code = row.riclass_code
+        if code.startswith("SP_"):
+            code = code[3:]
         sp_data[code] = sp_data.get(code, ZERO) + (row.amount or ZERO)
 
     def sp_get(code: str) -> D:

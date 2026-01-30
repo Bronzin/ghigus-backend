@@ -28,8 +28,18 @@ PASSIVO_CATEGORIES = [
     "ALTRO_PASSIVO",
 ]
 
-# Mapping riclass_code prefix -> passivo category
+# Mapping riclass_code (senza prefisso SP_) -> passivo category
+# Supporta sia codici flat (DEBITI, FONDI) sia gerarchici (P1.1, P2.2)
 _RICLASS_TO_CATEGORY: Dict[str, str] = {
+    # Codici flat
+    "DEBITI": "DEBITI_VS_FORNITORI",
+    "FONDI": "FONDI_RISCHI",
+    "CAPITALE": "PATRIMONIO_NETTO",
+    "RISERVE": "PATRIMONIO_NETTO",
+    "UTILE_PERDITA_ESERCIZIO": "PATRIMONIO_NETTO",
+    "UTILE_PERDITA_A_NUOVO": "PATRIMONIO_NETTO",
+    "CREDITI_X_AUMENTO_CAPITALE": "PATRIMONIO_NETTO",
+    # Codici gerarchici (legacy)
     "P1.1": "DEBITI_VS_BANCHE_BREVE",
     "P1.2": "DEBITI_VS_FORNITORI",
     "P1.3": "DEBITI_TRIBUTARI",
@@ -43,13 +53,34 @@ _RICLASS_TO_CATEGORY: Dict[str, str] = {
     "PN":   "PATRIMONIO_NETTO",
 }
 
+# Codici riclass che rappresentano passivo/PN (senza prefisso SP_)
+_PASSIVO_CODES = set([
+    "DEBITI", "FONDI",
+    "CAPITALE", "RISERVE", "UTILE_PERDITA_ESERCIZIO", "UTILE_PERDITA_A_NUOVO",
+    "CREDITI_X_AUMENTO_CAPITALE",
+])
+
+
+def _normalize_code(riclass_code: str) -> str:
+    """Rimuove il prefisso SP_ se presente."""
+    if riclass_code.startswith("SP_"):
+        return riclass_code[3:]
+    return riclass_code
+
+
+def _is_passivo_code(riclass_code: str) -> bool:
+    """Determina se un riclass_code è un passivo o PN."""
+    code = _normalize_code(riclass_code)
+    return code in _PASSIVO_CODES or code.startswith("P")
+
 
 def _map_riclass_to_category(riclass_code: str) -> str:
+    code = _normalize_code(riclass_code)
+    if code in _RICLASS_TO_CATEGORY:
+        return _RICLASS_TO_CATEGORY[code]
     for prefix, cat in sorted(_RICLASS_TO_CATEGORY.items(), key=lambda x: -len(x[0])):
-        if riclass_code.startswith(prefix):
+        if code.startswith(prefix):
             return cat
-    if riclass_code.startswith("P"):
-        return "ALTRO_PASSIVO"
     return "ALTRO_PASSIVO"
 
 
@@ -63,17 +94,12 @@ def seed_passivo_from_riclass(db: Session, case_id: str, scenario_id: str = "bas
         MdmPassivoItem.scenario_id == scenario_id,
     ).delete()
 
-    riclass_rows = (
-        db.query(SpRiclass)
-        .filter(
-            SpRiclass.case_id == case_id,
-            (SpRiclass.riclass_code.startswith("P")) | (SpRiclass.riclass_code.startswith("PN")),
-        )
-        .all()
-    )
+    riclass_rows = db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all()
 
     count = 0
     for row in riclass_rows:
+        if not _is_passivo_code(row.riclass_code):
+            continue
         category = _map_riclass_to_category(row.riclass_code)
         item = MdmPassivoItem(
             case_id=case_id,
