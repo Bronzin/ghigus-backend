@@ -13,6 +13,7 @@ class SpRiclass(Base):
     riclass_code = Column(String(64), index=True, nullable=False)
     riclass_desc = Column(String(256))
     amount = Column(Numeric(18, 2), default=0)
+    period = Column(String(16), nullable=True, index=True)  # "2023" da XBRL, None da TB
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -23,6 +24,7 @@ class CeRiclass(Base):
     riclass_code = Column(String(64), index=True, nullable=False)
     riclass_desc = Column(String(256))
     amount = Column(Numeric(18, 2), default=0)
+    period = Column(String(16), nullable=True, index=True)  # "2023" da XBRL, None da TB
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -33,4 +35,5 @@ class KpiStandard(Base):
     name = Column(String(128), index=True, nullable=False)  # es: Leverage, EBITDA Margin
     value = Column(Numeric(18, 4), nullable=False)
     unit = Column(String(16), nullable=True)                # %, x, EUR
+    period = Column(String(16), nullable=True, index=True)  # "2023" da XBRL, None da TB
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

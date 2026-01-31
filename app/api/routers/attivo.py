@@ -43,7 +43,7 @@ def seed_and_compute_attivo(slug: str, scenario: str = Query("base"), db: Sessio
 def update_attivo_item(slug: str, item_id: int, body: AttivoItemUpdate, db: Session = Depends(get_db)):
     _ensure_case(db, slug)
     try:
-        item = upsert_attivo_item(db, item_id, body.model_dump(exclude_none=True))
+        item = upsert_attivo_item(db, item_id, body.model_dump(exclude_unset=True))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return item

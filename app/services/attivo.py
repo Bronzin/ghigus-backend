@@ -101,13 +101,32 @@ def seed_attivo_from_riclass(db: Session, case_id: str, scenario_id: str = "base
     """
     Popola mdm_attivo_items dal SP riclassificato (fin_sp_riclass).
     Pattern: delete-recompute-insert.
+    Priorita': period=None (TB), fallback al periodo XBRL piu' recente.
     """
+    from sqlalchemy import func as sa_func
+
     db.query(MdmAttivoItem).filter(
         MdmAttivoItem.case_id == case_id,
         MdmAttivoItem.scenario_id == scenario_id,
     ).delete()
 
-    riclass_rows = db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all()
+    # Prova prima period=None (dal TB)
+    riclass_rows = db.query(SpRiclass).filter(
+        SpRiclass.case_id == case_id,
+        SpRiclass.period.is_(None),
+    ).all()
+
+    # Fallback: periodo XBRL piu' recente
+    if not riclass_rows:
+        latest = db.query(sa_func.max(SpRiclass.period)).filter(
+            SpRiclass.case_id == case_id,
+            SpRiclass.period.isnot(None),
+        ).scalar()
+        if latest:
+            riclass_rows = db.query(SpRiclass).filter(
+                SpRiclass.case_id == case_id,
+                SpRiclass.period == latest,
+            ).all()
 
     count = 0
     for row in riclass_rows:
@@ -162,9 +181,19 @@ def upsert_attivo_item(db: Session, item_id: int, updates: dict) -> MdmAttivoIte
     item = db.query(MdmAttivoItem).filter(MdmAttivoItem.id == item_id).first()
     if not item:
         raise ValueError(f"Attivo item {item_id} non trovato")
+    # Campi stringa/int: non convertire a Decimal
+    _NON_DECIMAL_FIELDS = {"modalita", "linked_passivo_id"}
+    _NULLABLE_FIELDS = {"linked_passivo_id"}
     for key, val in updates.items():
-        if val is not None and hasattr(item, key):
-            setattr(item, key, Decimal(str(val)))
+        if not hasattr(item, key):
+            continue
+        if val is None and key in _NULLABLE_FIELDS:
+            setattr(item, key, None)
+        elif val is not None:
+            if key in _NON_DECIMAL_FIELDS:
+                setattr(item, key, val)
+            else:
+                setattr(item, key, Decimal(str(val)))
     _compute_attivo_item(item)
     db.commit()
     return item

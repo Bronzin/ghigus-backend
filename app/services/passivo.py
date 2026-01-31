@@ -88,13 +88,32 @@ def seed_passivo_from_riclass(db: Session, case_id: str, scenario_id: str = "bas
     """
     Popola mdm_passivo_items dal SP riclassificato (passivo + PN).
     Pattern: delete-recompute-insert.
+    Priorita': period=None (TB), fallback al periodo XBRL piu' recente.
     """
+    from sqlalchemy import func as sa_func
+
     db.query(MdmPassivoItem).filter(
         MdmPassivoItem.case_id == case_id,
         MdmPassivoItem.scenario_id == scenario_id,
     ).delete()
 
-    riclass_rows = db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all()
+    # Prova prima period=None (dal TB)
+    riclass_rows = db.query(SpRiclass).filter(
+        SpRiclass.case_id == case_id,
+        SpRiclass.period.is_(None),
+    ).all()
+
+    # Fallback: periodo XBRL piu' recente
+    if not riclass_rows:
+        latest = db.query(sa_func.max(SpRiclass.period)).filter(
+            SpRiclass.case_id == case_id,
+            SpRiclass.period.isnot(None),
+        ).scalar()
+        if latest:
+            riclass_rows = db.query(SpRiclass).filter(
+                SpRiclass.case_id == case_id,
+                SpRiclass.period == latest,
+            ).all()
 
     count = 0
     for row in riclass_rows:

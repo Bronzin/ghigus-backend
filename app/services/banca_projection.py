@@ -16,6 +16,8 @@ from app.services.prededuzione import get_prededuzione
 from app.services.affitto import get_affitto
 from app.services.cessione import get_cessione
 from app.services.iva_settlement import compute_iva_monthly
+from app.services.finanziamenti import get_all_finanziamenti_by_period
+from app.db.models.mdm_attivo_schedule import MdmAttivoSchedule
 
 D = Decimal
 ZERO = D(0)
@@ -73,6 +75,27 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
 
     iva_pagamenti = compute_iva_monthly(iva_debito_list, iva_credito_list, delay_months=1)
 
+    # Nuovi finanziamenti: erogazioni (entrate) e rate (uscite)
+    fin_by_period = get_all_finanziamenti_by_period(db, case_id, scenario_id)
+
+    # Attivo schedule: incassi mensili programmati per le voci attivo del caso
+    from app.db.models.mdm_attivo import MdmAttivoItem
+    attivo_item_ids = [
+        r.id for r in db.query(MdmAttivoItem.id).filter(
+            MdmAttivoItem.case_id == case_id,
+            MdmAttivoItem.scenario_id == scenario_id,
+        ).all()
+    ]
+    attivo_sched_by_period: Dict[int, D] = {}
+    if attivo_item_ids:
+        sched_rows = db.query(MdmAttivoSchedule).filter(
+            MdmAttivoSchedule.attivo_item_id.in_(attivo_item_ids)
+        ).all()
+        for r in sched_rows:
+            attivo_sched_by_period[r.period_index] = (
+                attivo_sched_by_period.get(r.period_index, ZERO) + (r.importo or ZERO)
+            )
+
     count = 0
     saldo_progressivo = ZERO
 
@@ -83,12 +106,17 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
         incasso_clienti = abs(ce.get("RICAVI", ZERO))
         incasso_affitto = affitto_incasso.get(pi, ZERO)
         incasso_cessione = cessione_by_period.get(pi, ZERO)
-        totale_entrate = incasso_clienti + incasso_affitto + incasso_cessione
+        fin_period = fin_by_period.get(pi, {})
+        erogazione_fin = fin_period.get("erogazione", ZERO)
+        incasso_attivo_sched = attivo_sched_by_period.get(pi, ZERO)
+        totale_entrate = incasso_clienti + incasso_affitto + incasso_cessione + erogazione_fin + incasso_attivo_sched
 
         entrate_lines = [
             ("INCASSO_CLIENTI", "Incassi da clienti", incasso_clienti),
             ("INCASSO_AFFITTO", "Incasso affitto azienda", incasso_affitto),
             ("INCASSO_CESSIONE", "Incasso cessione azienda", incasso_cessione),
+            ("EROGAZIONE_FIN", "Erogazione nuovi finanziamenti", erogazione_fin),
+            ("INCASSO_ATTIVO", "Incassi attivo schedulati", incasso_attivo_sched),
             ("TOTALE_ENTRATE", "Totale entrate", totale_entrate),
         ]
 
@@ -111,7 +139,8 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
         pag_iva = max(iva_pagamenti[pi], ZERO) if pi < len(iva_pagamenti) else ZERO
         pag_oneri_fin = abs(ce.get("ONERI_FINANZIARI", ZERO))
 
-        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin
+        rata_fin = fin_period.get("rata", ZERO)
+        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin + rata_fin
 
         uscite_lines = [
             ("PAG_FORNITORI", "Pagamenti fornitori", pag_fornitori),
@@ -121,6 +150,7 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
             ("PAG_IMPOSTE", "Pagamenti imposte", pag_imposte),
             ("PAG_IVA", "Pagamento IVA", pag_iva),
             ("PAG_ONERI_FIN", "Pagamenti oneri finanziari", pag_oneri_fin),
+            ("RATA_FINANZIAMENTI", "Rate nuovi finanziamenti", rata_fin),
             ("TOTALE_USCITE", "Totale uscite", totale_uscite),
         ]
 

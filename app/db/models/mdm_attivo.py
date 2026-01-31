@@ -26,4 +26,9 @@ class MdmAttivoItem(Base):
     attivo_rettificato = Column(Numeric(18, 2), default=0)
     continuita_realizzo = Column(Numeric(18, 2), default=0)
 
+    # Gap 2: modalita' CONTINUITA vs REALIZZO
+    modalita = Column(String(16), nullable=False, default="CONTINUITA", server_default="CONTINUITA")
+    # Gap 3: collegamento a voce passivo (es. immobile <-> mutuo ipotecario)
+    linked_passivo_id = Column(Integer, ForeignKey("mdm_passivo_items.id", ondelete="SET NULL"), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import List
+from typing import List, Optional
 from app.db.session import get_db
 from app.db.models.final import SpRiclass, CeRiclass, KpiStandard
 from app.schemas.riclass import SpRiclassOut, CeRiclassOut, KpiStandardOut
@@ -14,31 +14,40 @@ def _ensure_case(db: Session, slug: str):
         raise HTTPException(status_code=404, detail="Case not found")
 
 @router.get("/cases/{slug}/sp-riclass", response_model=List[SpRiclassOut])
-def list_sp_riclass(slug: str, db: Session = Depends(get_db)):
+def list_sp_riclass(
+    slug: str,
+    period: Optional[str] = Query(None, description="Filtra per periodo (es. '2023')"),
+    db: Session = Depends(get_db),
+):
     _ensure_case(db, slug)
-    q = (
-        db.query(SpRiclass)
-        .filter(SpRiclass.case_id == slug)
-        .order_by(SpRiclass.riclass_code.asc(), SpRiclass.id.asc())
-    )
+    q = db.query(SpRiclass).filter(SpRiclass.case_id == slug)
+    if period is not None:
+        q = q.filter(SpRiclass.period == period)
+    q = q.order_by(SpRiclass.riclass_code.asc(), SpRiclass.id.asc())
     return q.all()
 
 @router.get("/cases/{slug}/ce-riclass", response_model=List[CeRiclassOut])
-def list_ce_riclass(slug: str, db: Session = Depends(get_db)):
+def list_ce_riclass(
+    slug: str,
+    period: Optional[str] = Query(None, description="Filtra per periodo (es. '2023')"),
+    db: Session = Depends(get_db),
+):
     _ensure_case(db, slug)
-    q = (
-        db.query(CeRiclass)
-        .filter(CeRiclass.case_id == slug)
-        .order_by(CeRiclass.riclass_code.asc(), CeRiclass.id.asc())
-    )
+    q = db.query(CeRiclass).filter(CeRiclass.case_id == slug)
+    if period is not None:
+        q = q.filter(CeRiclass.period == period)
+    q = q.order_by(CeRiclass.riclass_code.asc(), CeRiclass.id.asc())
     return q.all()
 
 @router.get("/cases/{slug}/kpi-standard", response_model=List[KpiStandardOut])
-def list_kpi(slug: str, db: Session = Depends(get_db)):
+def list_kpi(
+    slug: str,
+    period: Optional[str] = Query(None, description="Filtra per periodo (es. '2023')"),
+    db: Session = Depends(get_db),
+):
     _ensure_case(db, slug)
-    q = (
-        db.query(KpiStandard)
-        .filter(KpiStandard.case_id == slug)
-        .order_by(KpiStandard.name.asc(), KpiStandard.id.asc())
-    )
+    q = db.query(KpiStandard).filter(KpiStandard.case_id == slug)
+    if period is not None:
+        q = q.filter(KpiStandard.period == period)
+    q = q.order_by(KpiStandard.name.asc(), KpiStandard.id.asc())
     return q.all()

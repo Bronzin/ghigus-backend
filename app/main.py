@@ -15,7 +15,10 @@ app = FastAPI(title="Ghigus API", version="0.1")
 # ----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -144,3 +147,15 @@ try:
     app.include_router(scenarios_router)
 except Exception as e:
     print("Warn: scenarios router not loaded:", e)
+
+try:
+    from app.api.routers.xbrl_facts import router as xbrl_facts_router
+    app.include_router(xbrl_facts_router)
+except Exception as e:
+    print("Warn: xbrl_facts router not loaded:", e)
+
+try:
+    from app.api.routers.finanziamenti import router as finanziamenti_router
+    app.include_router(finanziamenti_router)
+except Exception as e:
+    print("Warn: finanziamenti router not loaded:", e)

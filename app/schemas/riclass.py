@@ -9,6 +9,7 @@ class SpRiclassOut(BaseModel):
     riclass_code: str
     riclass_desc: Optional[str] = None
     amount: float
+    period: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -21,6 +22,7 @@ class CeRiclassOut(BaseModel):
     riclass_code: str
     riclass_desc: Optional[str] = None
     amount: float
+    period: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -33,6 +35,7 @@ class KpiStandardOut(BaseModel):
     name: str
     value: float
     unit: Optional[str] = None
+    period: Optional[str] = None
     created_at: datetime
 
     class Config:

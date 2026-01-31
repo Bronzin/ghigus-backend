@@ -19,3 +19,5 @@ from app.db.models.mdm_projections import (  # noqa: F401
 )
 from app.db.models.mdm_concordato import MdmConcordatoMonthly  # noqa: F401
 from app.db.models.mdm_scenario import MdmScenario  # noqa: F401
+from app.db.models.mdm_attivo_schedule import MdmAttivoSchedule  # noqa: F401
+from app.db.models.mdm_finanziamento import MdmNuovoFinanziamento, MdmFinanziamentoSchedule  # noqa: F401

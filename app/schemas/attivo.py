@@ -19,6 +19,8 @@ class AttivoItemOut(BaseModel):
     totale_rettifiche: float = 0
     attivo_rettificato: float = 0
     continuita_realizzo: float = 0
+    modalita: str = "CONTINUITA"
+    linked_passivo_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -32,6 +34,8 @@ class AttivoItemUpdate(BaseModel):
     fondo_svalutazione: Optional[float] = None
     pct_svalutazione: Optional[float] = None
     continuita_realizzo: Optional[float] = None
+    modalita: Optional[str] = None
+    linked_passivo_id: Optional[int] = None
 
 
 class AttivoResponse(BaseModel):
