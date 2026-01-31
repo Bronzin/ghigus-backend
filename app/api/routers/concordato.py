@@ -5,7 +5,9 @@ from sqlalchemy import text
 
 from app.db.session import get_db
 from app.schemas.concordato import ConcordatoResponse
+from app.schemas.confronto import ConfrontoResponse
 from app.services.concordato import compute_concordato, get_concordato
+from app.services.confronto import compute_confronto
 from app.services.mdm_engine import run_full_pipeline
 
 router = APIRouter(tags=["concordato"])
@@ -30,6 +32,12 @@ def read_concordato(slug: str, scenario: str = Query("base"), db: Session = Depe
     _ensure_case(db, slug)
     lines = get_concordato(db, slug, scenario)
     return ConcordatoResponse(case_id=slug, lines=lines, count=len(lines))
+
+
+@router.get("/cases/{slug}/confronto", response_model=ConfrontoResponse)
+def read_confronto(slug: str, scenario: str = Query("base"), db: Session = Depends(get_db)):
+    _ensure_case(db, slug)
+    return compute_confronto(db, slug, scenario)
 
 
 @router.post("/cases/{slug}/compute-full")

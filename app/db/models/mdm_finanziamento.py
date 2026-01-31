@@ -1,5 +1,5 @@
 # app/db/models/mdm_finanziamento.py
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Boolean
 from datetime import datetime
 from app.db.base_class import Base
 
@@ -18,6 +18,9 @@ class MdmNuovoFinanziamento(Base):
     durata_mesi = Column(Integer, nullable=False, default=60)
     mese_erogazione = Column(Integer, nullable=False, default=0)  # period_index
     tipo_ammortamento = Column(String(16), nullable=False, default="FRANCESE")  # FRANCESE|ITALIANO|BULLET
+    is_existing = Column(Boolean, default=False)
+    debito_residuo_iniziale = Column(Numeric(18, 2), nullable=True)
+    rate_rimanenti = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

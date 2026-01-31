@@ -28,6 +28,9 @@ class FinanziamentoOut(BaseModel):
     durata_mesi: int
     mese_erogazione: int
     tipo_ammortamento: str
+    is_existing: bool = False
+    debito_residuo_iniziale: Optional[float] = None
+    rate_rimanenti: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -45,6 +48,9 @@ class FinanziamentoCreate(BaseModel):
     durata_mesi: int = 60
     mese_erogazione: int = 0
     tipo_ammortamento: str = "FRANCESE"
+    is_existing: bool = False
+    debito_residuo_iniziale: Optional[float] = None
+    rate_rimanenti: Optional[int] = None
 
 
 class FinanziamentiResponse(BaseModel):

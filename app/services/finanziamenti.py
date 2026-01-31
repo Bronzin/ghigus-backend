@@ -88,9 +88,15 @@ def _compute_ammortamento_bullet(capitale: D, tasso_annuo: D, durata_mesi: int) 
 
 def compute_finanziamento_schedule(fin: MdmNuovoFinanziamento) -> List[Dict]:
     """Calcola il piano di ammortamento per un finanziamento."""
-    capitale = fin.importo_capitale or ZERO
+    # Per finanziamenti esistenti: usa debito_residuo_iniziale e rate_rimanenti
+    if fin.is_existing:
+        capitale = fin.debito_residuo_iniziale or ZERO
+        durata = fin.rate_rimanenti or fin.durata_mesi or 60
+    else:
+        capitale = fin.importo_capitale or ZERO
+        durata = fin.durata_mesi or 60
+
     tasso = (fin.tasso_annuo or ZERO) / 100
-    durata = fin.durata_mesi or 60
 
     if capitale <= ZERO or durata <= 0:
         return []
@@ -161,11 +167,12 @@ def get_all_finanziamenti_by_period(db: Session, case_id: str, scenario_id: str 
         mese_erog = fin.mese_erogazione or 0
         schedules = get_finanziamento_schedule(db, fin.id)
 
-        # Erogazione: entra nel periodo di erogazione
-        if mese_erog not in by_period:
-            by_period[mese_erog] = {"erogazione": ZERO, "quota_capitale": ZERO,
-                                     "quota_interessi": ZERO, "rata": ZERO}
-        by_period[mese_erog]["erogazione"] += fin.importo_capitale or ZERO
+        # Erogazione: solo per nuovi finanziamenti (non existing)
+        if not fin.is_existing:
+            if mese_erog not in by_period:
+                by_period[mese_erog] = {"erogazione": ZERO, "quota_capitale": ZERO,
+                                         "quota_interessi": ZERO, "rata": ZERO}
+            by_period[mese_erog]["erogazione"] += fin.importo_capitale or ZERO
 
         for s in schedules:
             pi = s.period_index
@@ -181,6 +188,7 @@ def get_all_finanziamenti_by_period(db: Session, case_id: str, scenario_id: str 
 
 def create_finanziamento(db: Session, case_id: str, scenario_id: str, data: dict) -> MdmNuovoFinanziamento:
     """Crea un nuovo finanziamento e calcola il piano."""
+    is_existing = data.get("is_existing", False)
     fin = MdmNuovoFinanziamento(
         case_id=case_id,
         scenario_id=scenario_id,
@@ -190,6 +198,9 @@ def create_finanziamento(db: Session, case_id: str, scenario_id: str, data: dict
         durata_mesi=data.get("durata_mesi", 60),
         mese_erogazione=data.get("mese_erogazione", 0),
         tipo_ammortamento=data.get("tipo_ammortamento", "FRANCESE"),
+        is_existing=is_existing,
+        debito_residuo_iniziale=D(str(data["debito_residuo_iniziale"])) if data.get("debito_residuo_iniziale") is not None else None,
+        rate_rimanenti=data.get("rate_rimanenti"),
     )
     db.add(fin)
     db.flush()

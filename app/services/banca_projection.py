@@ -17,6 +17,7 @@ from app.services.affitto import get_affitto
 from app.services.cessione import get_cessione
 from app.services.iva_settlement import compute_iva_monthly
 from app.services.finanziamenti import get_all_finanziamenti_by_period
+from app.services.scadenziario_tributario import get_tributari_by_period
 from app.db.models.mdm_attivo_schedule import MdmAttivoSchedule
 
 D = Decimal
@@ -77,6 +78,9 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
 
     # Nuovi finanziamenti: erogazioni (entrate) e rate (uscite)
     fin_by_period = get_all_finanziamenti_by_period(db, case_id, scenario_id)
+
+    # Scadenziari tributari: rate per periodo
+    tributari_by_period = get_tributari_by_period(db, case_id, scenario_id)
 
     # Attivo schedule: incassi mensili programmati per le voci attivo del caso
     from app.db.models.mdm_attivo import MdmAttivoItem
@@ -140,7 +144,8 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
         pag_oneri_fin = abs(ce.get("ONERI_FINANZIARI", ZERO))
 
         rata_fin = fin_period.get("rata", ZERO)
-        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin + rata_fin
+        rata_tributari = tributari_by_period.get(pi, ZERO)
+        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin + rata_fin + rata_tributari
 
         uscite_lines = [
             ("PAG_FORNITORI", "Pagamenti fornitori", pag_fornitori),
@@ -151,6 +156,7 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
             ("PAG_IVA", "Pagamento IVA", pag_iva),
             ("PAG_ONERI_FIN", "Pagamenti oneri finanziari", pag_oneri_fin),
             ("RATA_FINANZIAMENTI", "Rate nuovi finanziamenti", rata_fin),
+            ("RATA_TRIBUTARI", "Rate scadenziari tributari", rata_tributari),
             ("TOTALE_USCITE", "Totale uscite", totale_uscite),
         ]
 

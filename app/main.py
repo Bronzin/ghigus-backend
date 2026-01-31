@@ -18,6 +18,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173", "http://127.0.0.1:5173",
         "http://localhost:5174", "http://127.0.0.1:5174",
+        "http://localhost:5175", "http://127.0.0.1:5175",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -159,3 +160,9 @@ try:
     app.include_router(finanziamenti_router)
 except Exception as e:
     print("Warn: finanziamenti router not loaded:", e)
+
+try:
+    from app.api.routers.scadenziario_tributario import router as scadenziario_tributario_router
+    app.include_router(scadenziario_tributario_router)
+except Exception as e:
+    print("Warn: scadenziario_tributario router not loaded:", e)
