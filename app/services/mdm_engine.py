@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Dict
 
 from app.db.models.mdm_projections import MdmSpProjection, MdmBancaProjection
+from app.services.processing import compute_case
 from app.services.attivo import seed_attivo_from_riclass, compute_attivo_totals
 from app.services.passivo import (
     seed_passivo_from_riclass,
@@ -95,6 +96,17 @@ def run_full_pipeline(db: Session, case_id: str, scenario_id: str = "base") -> d
     Ritorna un dizionario con i conteggi per ogni fase e info convergenza.
     """
     result = {}
+
+    # FASE 1: Riclassificazione SP/CE/KPI da TB e XBRL
+    import logging
+    _log = logging.getLogger(__name__)
+    try:
+        riclass = compute_case(db, case_id)
+        result["riclass"] = riclass.get("datamart", {})
+    except Exception as e:
+        _log.warning("compute_case (riclassificazione) skipped: %s", e)
+        db.rollback()
+        result["riclass"] = {}
 
     # FASE 2: Attivo + Passivo
     result["attivo_seed"] = seed_attivo_from_riclass(db, case_id, scenario_id)
