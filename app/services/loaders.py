@@ -138,17 +138,51 @@ NS_IX = "http://www.xbrl.org/2013/inlineXBRL"
 NS_XBRLI = "http://www.xbrl.org/2003/instance"
 NS_XBRLDI = "http://xbrl.org/2006/xbrldi"
 
+# Namespace URI -> prefix per tassonomie italiane e IFRS
+_NS_PREFIX_MAP: dict[str, str] = {
+    "http://www.infocamere.it/xbrl/taxonomy/itcc-ci": "itcc-ci",
+    "http://www.infocamere.it/xbrl/taxonomy/itcc-f": "itcc-f",
+    "http://www.infocamere.it/xbrl/taxonomy/itcc-r": "itcc-r",
+    "http://xbrl.ifrs.org/taxonomy/ifrs-full": "ifrs-full",
+    "http://xbrl.org/int/dim/arcrole/ifrs-full": "ifrs-full",
+}
+# Regex per {namespace_uri}localName
+_RE_NS_TAG = re.compile(r"\{([^}]+)\}(.+)")
+
+
+def _normalize_concept_name(raw: str) -> str:
+    """
+    Normalizza un concept name XBRL.
+
+    Converte:
+    - "{http://www.infocamere.it/xbrl/taxonomy/itcc-ci}CostiServizi" -> "itcc-ci:CostiServizi"
+    - "{http://xbrl.ifrs.org/taxonomy/ifrs-full}Revenue" -> "ifrs-full:Revenue"
+    - "{http://unknown.ns/foo}Bar" -> "Bar" (strip unknown namespace)
+    - "itcc-ci:CostiServizi" -> "itcc-ci:CostiServizi" (unchanged)
+    """
+    m = _RE_NS_TAG.match(raw)
+    if m:
+        ns_uri, local = m.group(1), m.group(2)
+        # Cerca match esatto o per prefisso dell'URI
+        for uri_prefix, prefix in _NS_PREFIX_MAP.items():
+            if ns_uri == uri_prefix or ns_uri.startswith(uri_prefix):
+                return f"{prefix}:{local}"
+        # Namespace sconosciuto: ritorna solo local name
+        return local
+    return raw
+
 
 def _is_ixbrl(file_path: str) -> bool:
     """Rileva se il file è iXBRL (inline XBRL in XHTML)."""
     ext = os.path.splitext(file_path)[1].lower()
     if ext in (".xhtml", ".html", ".htm"):
         return True
-    # Controlla i primi 4KB per il namespace inlineXBRL
+    # Controlla i primi 4KB per il namespace inlineXBRL o namespace italiani iXBRL
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             head = f.read(4096)
-        return "inlineXBRL" in head or NS_IX in head
+        return ("inlineXBRL" in head or NS_IX in head
+                or "www.infocamere.it" in head)
     except Exception:
         return False
 
@@ -197,7 +231,7 @@ def _parse_plain_xbrl(file_path: str) -> Iterable[Dict]:
         val = _to_decimal(text_val)
         if val is None:
             continue
-        concept = el.tag
+        concept = _normalize_concept_name(el.tag)
         unit = el.attrib.get("unitRef")
         decimals = el.attrib.get("decimals")
         period = contexts.get(ctx_ref, {})
@@ -346,10 +380,11 @@ def _parse_ix_number(raw: str, fmt: Optional[str]) -> Optional[Decimal]:
 
 def _extract_numeric_fact(el, contexts: Dict, units: Dict) -> Optional[Dict]:
     """Estrae un fatto numerico da un elemento ix:nonFraction."""
-    concept = el.get("name")
+    concept_raw = el.get("name")
     ctx_ref = el.get("contextRef")
-    if not concept or not ctx_ref:
+    if not concept_raw or not ctx_ref:
         return None
+    concept = _normalize_concept_name(concept_raw)
 
     unit_ref = el.get("unitRef")
     decimals = el.get("decimals")
@@ -405,10 +440,11 @@ def _extract_numeric_fact(el, contexts: Dict, units: Dict) -> Optional[Dict]:
 
 def _extract_text_fact(el, contexts: Dict) -> Optional[Dict]:
     """Estrae un fatto testuale da un elemento ix:nonNumeric."""
-    concept = el.get("name")
+    concept_raw = el.get("name")
     ctx_ref = el.get("contextRef")
-    if not concept or not ctx_ref:
+    if not concept_raw or not ctx_ref:
         return None
+    concept = _normalize_concept_name(concept_raw)
 
     text_value = _get_inner_text(el).strip()
     period = contexts.get(ctx_ref, {})

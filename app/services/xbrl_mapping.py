@@ -1,9 +1,10 @@
 # app/services/xbrl_mapping.py
-"""Mapping statico IFRS concept -> riclass code per SP e CE."""
+"""Mapping statico IFRS + IT-GAAP (OIC) concept -> riclass code per SP e CE."""
 
+import re
 from typing import Optional, Tuple
 
-# ─── SP (Stato Patrimoniale) ─────────────────────────────────────
+# ─── SP (Stato Patrimoniale) — IFRS ─────────────────────────────
 IFRS_TO_SP_RICLASS: dict[str, tuple[str, str]] = {
     # Attivo corrente
     "ifrs-full:CashAndCashEquivalents": ("LIQUIDITA_E_ESIGIBILITA_IMMEDIATE", "Disponibilita' liquide"),
@@ -70,7 +71,7 @@ IFRS_TO_SP_RICLASS: dict[str, tuple[str, str]] = {
     "ifrs-full:NoncontrollingInterests": ("CAPITALE", "Interessi di minoranza"),
 }
 
-# ─── CE (Conto Economico) ────────────────────────────────────────
+# ─── CE (Conto Economico) — IFRS ────────────────────────────────
 IFRS_TO_CE_RICLASS: dict[str, tuple[str, str]] = {
     "ifrs-full:Revenue": ("RICAVI", "Ricavi"),
     "ifrs-full:RevenueFromContractsWithCustomers": ("RICAVI", "Ricavi da contratti"),
@@ -103,10 +104,169 @@ IFRS_TO_CE_RICLASS: dict[str, tuple[str, str]] = {
     "ifrs-full:ProfitLossBeforeTax": ("RICAVI", "Risultato ante imposte"),
 }
 
+# ─── SP (Stato Patrimoniale) — IT-GAAP / OIC (tassonomia itcc-ci) ───
+ITCC_TO_SP_RICLASS: dict[str, tuple[str, str]] = {
+    # Crediti verso soci
+    "itcc-ci:CredVersoci": ("CREDITI", "Crediti verso soci"),
+    "itcc-ci:CredVSociPerVersAncoraDouvit": ("CREDITI", "Crediti vs soci per vers. dovuti"),
+    # Immobilizzazioni
+    "itcc-ci:TotaleImmobilizzazioniImmateriali": ("IMMOBILIZZAZIONI_IMMATERIALI", "Tot. immob. immateriali"),
+    "itcc-ci:ImmobilizzazioniImmateriali": ("IMMOBILIZZAZIONI_IMMATERIALI", "Immob. immateriali"),
+    "itcc-ci:CostiDiImpianto": ("IMMOBILIZZAZIONI_IMMATERIALI", "Costi di impianto"),
+    "itcc-ci:CostiDiSviluppo": ("IMMOBILIZZAZIONI_IMMATERIALI", "Costi di sviluppo"),
+    "itcc-ci:Avviamento": ("IMMOBILIZZAZIONI_IMMATERIALI", "Avviamento"),
+    "itcc-ci:TotaleImmobilizzazioniMateriali": ("IMMOBILIZZAZIONI_MATERIALI", "Tot. immob. materiali"),
+    "itcc-ci:ImmobilizzazioniMateriali": ("IMMOBILIZZAZIONI_MATERIALI", "Immob. materiali"),
+    "itcc-ci:Terreni": ("IMMOBILIZZAZIONI_MATERIALI", "Terreni"),
+    "itcc-ci:Fabbricati": ("IMMOBILIZZAZIONI_MATERIALI", "Fabbricati"),
+    "itcc-ci:ImpiantiEMacchinario": ("IMMOBILIZZAZIONI_MATERIALI", "Impianti e macchinari"),
+    "itcc-ci:TotaleImmobilizzazioniFinanziarie": ("IMMOBILIZZAZIONI_FINANZIARIE", "Tot. immob. finanziarie"),
+    "itcc-ci:ImmobilizzazioniFinanziarie": ("IMMOBILIZZAZIONI_FINANZIARIE", "Immob. finanziarie"),
+    "itcc-ci:Partecipazioni": ("IMMOBILIZZAZIONI_FINANZIARIE", "Partecipazioni"),
+    "itcc-ci:TotaleImmobilizzazioni": ("IMMOBILIZZAZIONI_MATERIALI", "Tot. immobilizzazioni"),
+    # Attivo circolante
+    "itcc-ci:TotaleRimanenze": ("RIMANENZE", "Tot. rimanenze"),
+    "itcc-ci:Rimanenze": ("RIMANENZE", "Rimanenze"),
+    "itcc-ci:MateriePrime": ("RIMANENZE", "Materie prime"),
+    "itcc-ci:ProdottiFiniti": ("RIMANENZE", "Prodotti finiti"),
+    "itcc-ci:TotaleCrediti": ("CREDITI", "Tot. crediti"),
+    "itcc-ci:CreditiVClienti": ("CREDITI", "Crediti vs clienti"),
+    "itcc-ci:CreditiTributari": ("CREDITI", "Crediti tributari"),
+    "itcc-ci:CreditiVersoAltri": ("CREDITI", "Crediti verso altri"),
+    "itcc-ci:AttivitaFinanziarieNonImmobilizzate": ("CREDITI", "Attivita' fin. non immob."),
+    "itcc-ci:DisponibilitaLiquide": ("LIQUIDITA_E_ESIGIBILITA_IMMEDIATE", "Disponibilita' liquide"),
+    "itcc-ci:DepositiBancariEPostali": ("LIQUIDITA_E_ESIGIBILITA_IMMEDIATE", "Depositi bancari"),
+    "itcc-ci:DenaroEValoriInCassa": ("LIQUIDITA_E_ESIGIBILITA_IMMEDIATE", "Denaro in cassa"),
+    "itcc-ci:TotaleAttivoCircolante": ("CREDITI", "Tot. attivo circolante"),
+    "itcc-ci:RateiERiscontiAttivi": ("CREDITI", "Ratei e risconti attivi"),
+    "itcc-ci:TotaleAttivo": ("CREDITI", "Tot. attivo"),
+    # Patrimonio netto
+    "itcc-ci:PatrimonioNetto": ("CAPITALE", "Patrimonio netto"),
+    "itcc-ci:TotalePatrimonioNetto": ("CAPITALE", "Tot. patrimonio netto"),
+    "itcc-ci:CapitaleSociale": ("CAPITALE", "Capitale sociale"),
+    "itcc-ci:Capitale": ("CAPITALE", "Capitale"),
+    "itcc-ci:RiservaLegale": ("CAPITALE", "Riserva legale"),
+    "itcc-ci:RiservaSovrapprezzo": ("CAPITALE", "Riserva sovrapprezzo"),
+    "itcc-ci:AltreRiserve": ("CAPITALE", "Altre riserve"),
+    "itcc-ci:RiservaRivalutazione": ("CAPITALE", "Riserva rivalutazione"),
+    "itcc-ci:UtiliPerditaPortatiANuovo": ("UTILE_PERDITA_A_NUOVO", "Utili/perdite a nuovo"),
+    "itcc-ci:UtilePerdita": ("UTILE_PERDITA_ESERCIZIO", "Utile/perdita esercizio"),
+    "itcc-ci:UtilePerdEsercizio": ("UTILE_PERDITA_ESERCIZIO", "Utile/perdita esercizio"),
+    # Fondi
+    "itcc-ci:FondiPerRischiEdOneri": ("FONDI", "Fondi rischi e oneri"),
+    "itcc-ci:FondiRischiOneri": ("FONDI", "Fondi rischi e oneri"),
+    "itcc-ci:TFR": ("FONDI", "TFR"),
+    "itcc-ci:TrattamentoFineRapporto": ("FONDI", "TFR"),
+    # Debiti
+    "itcc-ci:Debiti": ("DEBITI", "Debiti"),
+    "itcc-ci:TotaleDebiti": ("DEBITI", "Tot. debiti"),
+    "itcc-ci:DebitiVersoBanche": ("DEBITI", "Debiti vs banche"),
+    "itcc-ci:DebitiVersoFornitori": ("DEBITI", "Debiti vs fornitori"),
+    "itcc-ci:DebitiTributari": ("DEBITI", "Debiti tributari"),
+    "itcc-ci:DebitiVIstitutiPrevidenzialiESicurezzaSociale": ("DEBITI", "Debiti previdenziali"),
+    "itcc-ci:AltriDebiti": ("DEBITI", "Altri debiti"),
+    "itcc-ci:RateiERiscontiPassivi": ("DEBITI", "Ratei e risconti passivi"),
+    "itcc-ci:TotalePassivo": ("DEBITI", "Tot. passivo"),
+}
+
+# ─── CE (Conto Economico) — IT-GAAP / OIC (tassonomia itcc-ci) ──
+ITCC_TO_CE_RICLASS: dict[str, tuple[str, str]] = {
+    # Ricavi
+    "itcc-ci:RicaviDelleVendite": ("RICAVI", "Ricavi delle vendite"),
+    "itcc-ci:RicaviVenditeEPrestazioni": ("RICAVI", "Ricavi vendite e prestazioni"),
+    "itcc-ci:AltriRicaviEProventi": ("RICAVI", "Altri ricavi e proventi"),
+    "itcc-ci:ValoreDellaProduzione": ("RICAVI", "Valore della produzione"),
+    "itcc-ci:TotaleValoreProduzione": ("RICAVI", "Tot. valore produzione"),
+    # Costi produzione
+    "itcc-ci:VariazioneRimanenze": ("MATERIE_PRIME_E_MERCI", "Variazione rimanenze"),
+    "itcc-ci:VariazRimanenzeProdFiniti": ("MATERIE_PRIME_E_MERCI", "Var. rimanenze prod. finiti"),
+    "itcc-ci:CostiMateriePrime": ("MATERIE_PRIME_E_MERCI", "Costi materie prime"),
+    "itcc-ci:CostiMatPrimeSussConsMerci": ("MATERIE_PRIME_E_MERCI", "Costi mat. prime e merci"),
+    "itcc-ci:CostiServizi": ("SERVIZI", "Costi per servizi"),
+    "itcc-ci:CostiPerServizi": ("SERVIZI", "Costi per servizi"),
+    "itcc-ci:CostiGodimentoBeniTerzi": ("SERVIZI", "Godimento beni terzi"),
+    "itcc-ci:CostiPersonale": ("COSTI_PERSONALE", "Costi del personale"),
+    "itcc-ci:CostoDelPersonale": ("COSTI_PERSONALE", "Costo del personale"),
+    "itcc-ci:SalariEStipendi": ("COSTI_PERSONALE", "Salari e stipendi"),
+    "itcc-ci:OneriSociali": ("COSTI_PERSONALE", "Oneri sociali"),
+    "itcc-ci:Ammortamenti": ("AMMORTAMENTI_MATERIALI", "Ammortamenti"),
+    "itcc-ci:AmmortamentiImmMateriali": ("AMMORTAMENTI_MATERIALI", "Ammort. immob. materiali"),
+    "itcc-ci:AmmortamentiImmImmateriali": ("AMMORTAMENTI_IMMATERIALI", "Ammort. immob. immateriali"),
+    "itcc-ci:AmmortamentiESvalutazioni": ("AMMORTAMENTI_MATERIALI", "Ammort. e svalutazioni"),
+    "itcc-ci:Svalutazioni": ("AMMORTAMENTI_MATERIALI", "Svalutazioni"),
+    "itcc-ci:OneriDiversiDiGestione": ("SERVIZI", "Oneri diversi di gestione"),
+    "itcc-ci:TotaleCostiProduzione": ("SERVIZI", "Tot. costi produzione"),
+    "itcc-ci:CostiDellaProduzione": ("SERVIZI", "Costi della produzione"),
+    # Proventi e oneri finanziari
+    "itcc-ci:ProventiOneriFinanziari": ("PROVENTI_FINANZIARI", "Proventi/oneri finanziari"),
+    "itcc-ci:ProventiFinanziari": ("PROVENTI_FINANZIARI", "Proventi finanziari"),
+    "itcc-ci:AltriProventiFinanziari": ("PROVENTI_FINANZIARI", "Altri proventi finanziari"),
+    "itcc-ci:InteressiEAltriOneriFinanziari": ("ONERI_FINANZIARI", "Interessi e oneri finanziari"),
+    "itcc-ci:OneriFinanziari": ("ONERI_FINANZIARI", "Oneri finanziari"),
+    # Rettifiche e straordinari
+    "itcc-ci:RettificheAttivitaFinanziarie": ("PROVENTI_FINANZIARI", "Rettifiche att. finanziarie"),
+    "itcc-ci:ProventiOneriStraordinari": ("RICAVI", "Proventi/oneri straordinari"),
+    # Imposte
+    "itcc-ci:ImposteSulReddito": ("IMPOSTE", "Imposte sul reddito"),
+    "itcc-ci:ImposteReddito": ("IMPOSTE", "Imposte sul reddito"),
+    "itcc-ci:ImposteSulRedditoEsercizio": ("IMPOSTE", "Imposte reddito esercizio"),
+    # Risultati intermedi
+    "itcc-ci:DifferenzaValoreCostiProduzione": ("RICAVI", "Diff. valore/costi produzione"),
+    "itcc-ci:RisultatoPrimaDelleImposte": ("RICAVI", "Risultato ante imposte"),
+    "itcc-ci:UtilePerdEsercizio": ("RICAVI", "Utile/perdita esercizio"),
+}
+
+# ─── Indice unificato per lookup rapido per local name ───────────
+# Costruisce un dict {local_name: (tipo, riclass_code, riclass_desc)}
+# dove local_name e' la parte dopo ":" (es. "Revenue", "CostiServizi")
+# In caso di conflitto, il primo vince (IFRS ha precedenza).
+_LOCAL_NAME_INDEX: dict[str, tuple[str, str, str]] = {}
+
+
+def _build_local_name_index():
+    """Popola l'indice per local name da tutti i dizionari."""
+    for concept, (code, desc) in IFRS_TO_SP_RICLASS.items():
+        local = concept.split(":")[-1]
+        if local not in _LOCAL_NAME_INDEX:
+            _LOCAL_NAME_INDEX[local] = ("SP", code, desc)
+    for concept, (code, desc) in IFRS_TO_CE_RICLASS.items():
+        local = concept.split(":")[-1]
+        if local not in _LOCAL_NAME_INDEX:
+            _LOCAL_NAME_INDEX[local] = ("CE", code, desc)
+    for concept, (code, desc) in ITCC_TO_SP_RICLASS.items():
+        local = concept.split(":")[-1]
+        if local not in _LOCAL_NAME_INDEX:
+            _LOCAL_NAME_INDEX[local] = ("SP", code, desc)
+    for concept, (code, desc) in ITCC_TO_CE_RICLASS.items():
+        local = concept.split(":")[-1]
+        if local not in _LOCAL_NAME_INDEX:
+            _LOCAL_NAME_INDEX[local] = ("CE", code, desc)
+
+
+_build_local_name_index()
+
+# Regex per estrarre local name da namespace URI: {http://...}LocalName
+_NS_URI_RE = re.compile(r"\{[^}]+\}(.+)")
+
+
+def _normalize_concept(concept: str) -> str:
+    """
+    Normalizza un concept XBRL in forma prefix:localName o solo localName.
+
+    Gestisce:
+    - "{http://www.infocamere.it/...}NomeVoce" -> "NomeVoce"
+    - "itcc-ci:NomeVoce" -> "itcc-ci:NomeVoce" (invariato)
+    - "NomeVoce" -> "NomeVoce" (invariato)
+    """
+    m = _NS_URI_RE.match(concept)
+    if m:
+        return m.group(1)
+    return concept
+
 
 def classify_xbrl_fact(concept: str) -> Optional[Tuple[str, str, str]]:
     """
-    Classifica un concept XBRL IFRS.
+    Classifica un concept XBRL (IFRS o IT-GAAP).
 
     Ritorna (tipo, riclass_code, riclass_desc) o None se non mappato.
     tipo = "SP" | "CE"
@@ -114,17 +274,59 @@ def classify_xbrl_fact(concept: str) -> Optional[Tuple[str, str, str]]:
     if not concept:
         return None
 
-    # Normalizza: rimuove eventuale prefisso namespace URI
-    # I concept possono arrivare come "ifrs-full:Revenue" o solo "Revenue"
-    key = concept
-    if ":" not in key:
-        key = f"ifrs-full:{key}"
+    # Normalizza: rimuove eventuale namespace URI
+    key = _normalize_concept(concept)
 
+    # 1) Lookup diretto (concept gia' in forma prefix:localName)
     if key in IFRS_TO_SP_RICLASS:
         code, desc = IFRS_TO_SP_RICLASS[key]
         return ("SP", code, desc)
     if key in IFRS_TO_CE_RICLASS:
         code, desc = IFRS_TO_CE_RICLASS[key]
         return ("CE", code, desc)
+    if key in ITCC_TO_SP_RICLASS:
+        code, desc = ITCC_TO_SP_RICLASS[key]
+        return ("SP", code, desc)
+    if key in ITCC_TO_CE_RICLASS:
+        code, desc = ITCC_TO_CE_RICLASS[key]
+        return ("CE", code, desc)
+
+    # 2) Se non ha prefisso, prova aggiungendo prefissi noti
+    if ":" not in key:
+        for prefix in ("ifrs-full", "itcc-ci"):
+            prefixed = f"{prefix}:{key}"
+            if prefixed in IFRS_TO_SP_RICLASS:
+                code, desc = IFRS_TO_SP_RICLASS[prefixed]
+                return ("SP", code, desc)
+            if prefixed in IFRS_TO_CE_RICLASS:
+                code, desc = IFRS_TO_CE_RICLASS[prefixed]
+                return ("CE", code, desc)
+            if prefixed in ITCC_TO_SP_RICLASS:
+                code, desc = ITCC_TO_SP_RICLASS[prefixed]
+                return ("SP", code, desc)
+            if prefixed in ITCC_TO_CE_RICLASS:
+                code, desc = ITCC_TO_CE_RICLASS[prefixed]
+                return ("CE", code, desc)
+
+        # 3) Fallback: lookup per local name nell'indice unificato
+        if key in _LOCAL_NAME_INDEX:
+            return _LOCAL_NAME_INDEX[key]
+    else:
+        # Ha un prefisso sconosciuto (es. "itcc-f:NomeVoce"): prova il local name
+        local = key.split(":")[-1]
+        if local in _LOCAL_NAME_INDEX:
+            return _LOCAL_NAME_INDEX[local]
 
     return None
+
+
+def get_all_mapped_concepts() -> set[str]:
+    """Ritorna l'insieme di tutti i concept mappati (per diagnostica unmapped)."""
+    all_concepts: set[str] = set()
+    all_concepts.update(IFRS_TO_SP_RICLASS.keys())
+    all_concepts.update(IFRS_TO_CE_RICLASS.keys())
+    all_concepts.update(ITCC_TO_SP_RICLASS.keys())
+    all_concepts.update(ITCC_TO_CE_RICLASS.keys())
+    # Aggiungi anche i local name
+    all_concepts.update(_LOCAL_NAME_INDEX.keys())
+    return all_concepts

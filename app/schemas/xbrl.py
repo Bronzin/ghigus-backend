@@ -45,3 +45,15 @@ class XbrlSummaryResponse(BaseModel):
     sp: List[XbrlSummaryRow]
     ce: List[XbrlSummaryRow]
     kpi: List[XbrlKpiRow]
+
+
+class XbrlUnmappedConcept(BaseModel):
+    concept: Optional[str] = None
+    count: int
+
+
+class XbrlUnmappedResponse(BaseModel):
+    case_id: str
+    unmapped: List[XbrlUnmappedConcept]
+    unmapped_count: int
+    mapped_count: int

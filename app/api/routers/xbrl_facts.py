@@ -13,7 +13,9 @@ from app.db.models.final import SpRiclass, CeRiclass, KpiStandard
 from app.schemas.xbrl import (
     XbrlFactOut, XbrlFactsResponse,
     XbrlSummaryRow, XbrlKpiRow, XbrlSummaryResponse,
+    XbrlUnmappedResponse, XbrlUnmappedConcept,
 )
+from app.services.xbrl_mapping import classify_xbrl_fact
 
 router = APIRouter(tags=["xbrl"])
 
@@ -118,4 +120,41 @@ def xbrl_summary(
         sp=list(sp_map.values()),
         ce=list(ce_map.values()),
         kpi=list(kpi_map.values()),
+    )
+
+
+# ── GET xbrl-unmapped ──────────────────────────────────────────
+@router.get("/cases/{slug}/xbrl-unmapped", response_model=XbrlUnmappedResponse)
+def xbrl_unmapped(
+    slug: str,
+    numeric_only: bool = Query(True, description="Solo concept con valore numerico"),
+    db: Session = Depends(get_db),
+):
+    """Concept distinti in stg_xbrl_facts che non hanno corrispondenza in xbrl_mapping."""
+    _ensure_case(db, slug)
+
+    q = db.query(
+        XbrlFact.concept,
+        func.count(XbrlFact.id).label("count"),
+    ).filter(XbrlFact.case_id == slug)
+
+    if numeric_only:
+        q = q.filter(XbrlFact.value.isnot(None))
+
+    rows = q.group_by(XbrlFact.concept).order_by(func.count(XbrlFact.id).desc()).all()
+
+    unmapped = []
+    mapped_count = 0
+    for concept, cnt in rows:
+        result = classify_xbrl_fact(concept)
+        if result is None:
+            unmapped.append(XbrlUnmappedConcept(concept=concept, count=cnt))
+        else:
+            mapped_count += 1
+
+    return XbrlUnmappedResponse(
+        case_id=slug,
+        unmapped=unmapped,
+        unmapped_count=len(unmapped),
+        mapped_count=mapped_count,
     )
