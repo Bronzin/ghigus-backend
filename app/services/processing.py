@@ -82,10 +82,14 @@ def stage_xbrl(db: Session, case_id: str, facts: Iterable[Dict]) -> int:
 # MAPPE: costruzione dict (override per-pratica -> fallback globale)
 # -------------------------
 def _build_map_sp(db: Session, case_id: str) -> Dict[str, Tuple[str, Optional[str]]]:
-    specific = {
-        m.imported_code: (m.riclass_code, m.riclass_desc)
-        for m in db.query(MapSP).filter(MapSP.case_id == case_id).all()
-    }
+    try:
+        specific = {
+            m.imported_code: (m.riclass_code, m.riclass_desc)
+            for m in db.query(MapSP).filter(MapSP.case_id == case_id).all()
+        }
+    except Exception:
+        db.rollback()
+        return {}
     if specific:
         base = {
             m.imported_code: (m.riclass_code, m.riclass_desc)
@@ -101,10 +105,14 @@ def _build_map_sp(db: Session, case_id: str) -> Dict[str, Tuple[str, Optional[st
         }
 
 def _build_map_ce(db: Session, case_id: str) -> Dict[str, Tuple[str, Optional[str]]]:
-    specific = {
-        m.imported_code: (m.riclass_code, m.riclass_desc)
-        for m in db.query(MapCE).filter(MapCE.case_id == case_id).all()
-    }
+    try:
+        specific = {
+            m.imported_code: (m.riclass_code, m.riclass_desc)
+            for m in db.query(MapCE).filter(MapCE.case_id == case_id).all()
+        }
+    except Exception:
+        db.rollback()
+        return {}
     if specific:
         base = {
             m.imported_code: (m.riclass_code, m.riclass_desc)
@@ -368,9 +376,19 @@ def ingest_case(db: Session, case_id: str) -> dict:
 
 def compute_case(db: Session, case_id: str) -> dict:
     """Solo compute: riclassifica SP/CE e calcola KPI partendo dallo staging già presente."""
-    n_sp = compute_sp(db, case_id)
-    n_ce = compute_ce(db, case_id)
-    n_kp = compute_kpi(db, case_id)
+    import logging
+    log = logging.getLogger(__name__)
+
+    # TB-based (può fallire se manca stg_map_sp o non c'è TB)
+    n_sp = n_ce = n_kp = 0
+    try:
+        n_sp = compute_sp(db, case_id)
+        n_ce = compute_ce(db, case_id)
+        n_kp = compute_kpi(db, case_id)
+    except Exception as e:
+        log.warning("compute TB-based skipped (no TB data or schema issue): %s", e)
+        db.rollback()
+
     # XBRL multi-anno
     n_sp_xbrl = compute_sp_from_xbrl(db, case_id)
     n_ce_xbrl = compute_ce_from_xbrl(db, case_id)
