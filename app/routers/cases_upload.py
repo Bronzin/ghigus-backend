@@ -112,7 +112,7 @@ async def upload_xbrl(case_id: str, file: UploadFile = File(...), db: Session = 
     case = _get_case(db, case_id)
     if not case:
         raise HTTPException(404, "Case not found")
-    if file.content_type not in ("application/xml", "text/xml", "application/xbrl+xml"):
+    if file.content_type not in ("application/xml", "text/xml", "application/xbrl+xml", "application/xhtml+xml"):
         raise HTTPException(415, "Expected XBRL/XML file")
 
     data = await file.read()

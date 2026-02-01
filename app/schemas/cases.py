@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class CreateCaseRequest(BaseModel):
     slug: str = Field(..., max_length=64)
     name: str
-    company_id: str
+    company_id: Optional[str] = None
     description: Optional[str] = None
 
 
@@ -15,23 +15,23 @@ class CaseResponse(BaseModel):
     id: str
     slug: str
     name: str
-    company_id: str
+    company_id: Optional[str] = None
     description: Optional[str] = None
     status: str = "created"
 
     class Config:
         from_attributes = True
-        
+
 class CaseCreate(BaseModel):
     slug: str
     name: str
-    company_id: str   # deve essere stringa
+    company_id: Optional[str] = None
 
 class CaseResponse(BaseModel):
     id: str
     slug: str
     name: str
-    company_id: str
+    company_id: Optional[str] = None
     status: str | None = None
     description: str | None = None
     class Config:
