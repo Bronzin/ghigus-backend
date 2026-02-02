@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     supabase_service_key: str = Field(..., alias="SUPABASE_SERVICE_KEY")
     storage_bucket: str = Field("ghigus-files", alias="STORAGE_BUCKET")
 
+    # CNC PowerPoint generation
+    cnc_use_mock: bool = Field(True, alias="CNC_USE_MOCK")
+    openai_api_key: str = Field("", alias="OPENAI_API_KEY")
+    openai_model: str = Field("gpt-4o-mini", alias="OPENAI_MODEL")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
