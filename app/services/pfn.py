@@ -13,10 +13,14 @@ from app.db.models.mdm_projections import MdmSpProjection
 D = Decimal
 ZERO = D(0)
 
-# Categorie attivo finanziario (riducono la PFN)
-_ATTIVO_FIN_CATEGORIES = {
+# Categorie liquidita' (riducono la PFN)
+_LIQUIDITA_CATEGORIES = {
     "DISPONIBILITA_LIQUIDE", "CASSA", "BANCA_CC",
-    "ATTIVITA_FINANZIARIE", "TITOLI",
+}
+
+# Categorie attivita' finanziarie (riducono la PFN)
+_ATTIVITA_FIN_CATEGORIES = {
+    "ATTIVITA_FINANZIARIE", "TITOLI", "IMMOBILIZZAZIONI_FINANZIARIE",
 }
 
 # Categorie passivo finanziario (aumentano la PFN)
@@ -44,7 +48,13 @@ def compute_pfn_from_mdm(db: Session, case_id: str, scenario_id: str = "base") -
     liquidita = sum(
         (i.attivo_rettificato or ZERO)
         for i in attivo_items
-        if i.category in _ATTIVO_FIN_CATEGORIES
+        if i.category in _LIQUIDITA_CATEGORIES
+    )
+
+    attivita_finanziarie = sum(
+        (i.attivo_rettificato or ZERO)
+        for i in attivo_items
+        if i.category in _ATTIVITA_FIN_CATEGORIES
     )
 
     debiti_fin_bt = sum(
@@ -59,15 +69,15 @@ def compute_pfn_from_mdm(db: Session, case_id: str, scenario_id: str = "base") -
         if i.category in _PASSIVO_FIN_MLT_CATEGORIES
     )
 
-    pfn = debiti_fin_bt + debiti_fin_mlt - liquidita
+    pfn = debiti_fin_bt + debiti_fin_mlt - liquidita - attivita_finanziarie
 
     return {
         "liquidita": float(liquidita),
-        "attivita_finanziarie": 0.0,  # TODO: attivita' finanziarie separate
+        "attivita_finanziarie": float(attivita_finanziarie),
         "debiti_finanziari_bt": float(debiti_fin_bt),
         "debiti_finanziari_mlt": float(debiti_fin_mlt),
         "pfn": float(pfn),
-        "interpretation": _interpret_pfn(pfn, liquidita, debiti_fin_bt + debiti_fin_mlt),
+        "interpretation": _interpret_pfn(pfn, liquidita + attivita_finanziarie, debiti_fin_bt + debiti_fin_mlt),
     }
 
 
@@ -92,13 +102,15 @@ def compute_pfn_from_projections(db: Session, case_id: str, scenario_id: str = "
     for pi in sorted(by_period.keys()):
         data = by_period[pi]
         cassa = data.get("CASSA", ZERO)
+        immob_fin = data.get("IMMOB_FINANZIARIE", ZERO)
         debiti_bt = abs(data.get("DEBITI_BREVE", ZERO))
         debiti_mlt = abs(data.get("DEBITI_LUNGO", ZERO))
-        pfn = debiti_bt + debiti_mlt - cassa
+        pfn = debiti_bt + debiti_mlt - cassa - immob_fin
 
         result.append({
             "period_index": pi,
             "cassa": float(cassa),
+            "attivita_finanziarie": float(immob_fin),
             "debiti_finanziari_bt": float(debiti_bt),
             "debiti_finanziari_mlt": float(debiti_mlt),
             "pfn": float(pfn),

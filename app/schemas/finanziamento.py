@@ -84,6 +84,7 @@ class PfnResponse(BaseModel):
 class PfnProjectionEntry(BaseModel):
     period_index: int
     cassa: float
+    attivita_finanziarie: float = 0.0
     debiti_finanziari_bt: float
     debiti_finanziari_mlt: float
     pfn: float
