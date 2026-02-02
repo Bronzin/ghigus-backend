@@ -166,3 +166,9 @@ try:
     app.include_router(scadenziario_tributario_router)
 except Exception as e:
     print("Warn: scadenziario_tributario router not loaded:", e)
+
+try:
+    from app.api.routers.conti import router as conti_router
+    app.include_router(conti_router)
+except Exception as e:
+    print("Warn: conti router not loaded:", e)
