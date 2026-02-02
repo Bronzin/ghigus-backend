@@ -1,5 +1,5 @@
 # app/db/models/mdm_scadenziario_tributario.py
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Boolean
 from datetime import datetime
 from app.db.base_class import Base
 
@@ -18,6 +18,7 @@ class MdmScadenziarioTributario(Base):
     tasso_interessi = Column(Numeric(8, 4), default=0)   # annuo
     sanzioni_totali = Column(Numeric(18, 2), default=0)
     mese_inizio = Column(Integer, default=0)             # period_index (0-119)
+    is_existing = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

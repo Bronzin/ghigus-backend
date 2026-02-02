@@ -38,6 +38,7 @@ class ScadenziarioTributarioListOut(BaseModel):
     tasso_interessi: float = 0
     sanzioni_totali: float = 0
     mese_inizio: int = 0
+    is_existing: bool = False
     created_at: datetime
 
     class Config:
