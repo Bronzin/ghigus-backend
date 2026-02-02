@@ -21,6 +21,7 @@ Started: Mon Feb  2 13:01:41 CET 2026
 - CNC adapter pattern: each function takes (db, case_id, scenario_id) → list[list[str]] with header row; CE/CFlow annual=sum, SP annual=year-end snapshot
 - CNC AI: cnc_ai.generate_comment() is the main entry point; use_mock defaults to CNC_USE_MOCK env var; mock mode returns Italian placeholder text
 - CNC config: CNC_USE_MOCK, OPENAI_API_KEY, OPENAI_MODEL in app/core/config.py Settings (also read via os.environ in cnc_ai.py for standalone use)
+- CNC generator: `cnc_generator.generate(db, case_id, scenario_id, use_mock)` → BytesIO with PPTX; uses cnc_data_adapter for tables, cnc_ai for comments
 
 ---
 
@@ -213,4 +214,32 @@ Started: Mon Feb  2 13:01:41 CET 2026
   - `_extract_periodo` handles both "2024" and "2.024" (Italian thousands separator) year formats in table headers
   - Each prompt type has different kwargs: analisi_economica/finanziaria/stato_patrimoniale/pfn take (table_data, periodo); rettifiche take (table_data, anno_riferimento); piano_flussi/creditori take (table_data, anno); conclusioni takes (dati_sintesi)
   - generate_comment() dispatches to correct PromptBuilder method based on prompt_type string
+---
+
+## 2026-02-02 - BE-010
+- What was implemented:
+  - Created `app/services/cnc_generator.py` — full CNC PowerPoint generator service
+  - Ported all slide generation logic from ghigus-cnc/main.py, adapted for DB-backed data
+  - All 33 slides generated (no exclusions — slides 19,21,23-27 now have data from adapter)
+  - 6 slide types: titolo, sezione, tabella, commento_ai, testo_statico, testo_manuale
+  - Table slides: dark blue headers (#1F4E79), alternating light blue rows, bold totals, 9pt font
+  - AI comment slides: markdown bold support, heading detection, bullet formatting, multi-slide split at 250 words with "(continua)" suffix
+  - Special slides: Obiettivo e Strategia (slide 2), Descrizione Azienda (slide 4) with company info
+  - Data fetched via cnc_data_adapter, AI comments via cnc_ai.generate_comment()
+  - Returns BytesIO with valid PPTX (16:9 format, 13.333" × 7.5")
+  - Added python-pptx>=0.6.21 to requirements.txt
+  - Pre-fetches all table data in single pass to avoid repeated DB queries
+- Files changed:
+  - `app/services/cnc_generator.py` (new)
+  - `requirements.txt` (added python-pptx)
+  - `scripts/ralph/prd.json` (BE-010 passes: true)
+- **Learnings for future iterations:**
+  - The generator uses module-level functions (not a class) for simplicity — `generate()` is the main entry point
+  - SLIDE_DEFINITIONS list contains all 33 slides with data_key mapping to cnc_data_adapter functions
+  - Table data is pre-cached by data_key before slide generation loop to avoid redundant DB queries
+  - AI comment slides reference their table slide by number (table_ref field), which maps to the data_key
+  - python-pptx slide_layouts[6] is the blank layout — used for all slide types
+  - _split_comment() breaks on double newlines to preserve paragraph structure
+  - Company info comes from Case model (name → nome_azienda, description → settore)
+  - The generate() function returns BytesIO — caller is responsible for serving as HTTP response
 ---

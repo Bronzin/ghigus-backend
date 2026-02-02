@@ -153,7 +153,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Port from ghigus-cnc/main.py. Key changes: data comes from cnc_data_adapter instead of openpyxl. Template structure from mapping_config.json stays the same. Company info from Case model instead of Excel MENU sheet."
     },
     {
