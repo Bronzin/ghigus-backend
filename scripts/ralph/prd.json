@@ -15,7 +15,7 @@
         "Server starts without errors"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Extract seed data from the existing xbrl_mapping.py constants. Deduplicate riclass codes across IFRS and ITGAAP maps."
     },
     {
@@ -30,7 +30,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "CSV format: label,period_index,quota_capitale,quota_interessi. One row per month per financing. Use csv.DictReader for parsing."
     },
     {
@@ -45,7 +45,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Same pattern as BE-002 but for tax schedules."
     },
     {
@@ -61,7 +61,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The base opening values come from SpRiclass (IMMOB_MATERIALI, IMMOB_IMMATERIALI). New capex comes from assumptions or future capex model."
     },
     {
@@ -76,7 +76,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Italian TFR is legally ~6.91%. The accrual is a cost in CE and a growing liability in SP."
     },
     {

@@ -1,0 +1,122 @@
+# Ralph Progress Log
+Started: Mon Feb  2 13:01:41 CET 2026
+---
+
+## Codebase Patterns
+- Models inherit from `Base` in `app/db/base_class.py`, registered via import in `app/db/base.py`
+- Routers registered in `app/main.py` with try/except pattern for optional loading
+- Alembic migrations use custom revision IDs like `mdm_XX_description`, chain via `down_revision`
+- Latest migration: `mdm_13_sched_existing` (chain: mdm_10 → mdm_11 → mdm_12 → mdm_13)
+- Use `.venv/Scripts/python.exe` for running Python (Windows WSL2 with Windows venv)
+- No mypy installed; quality checks = import test + app startup test
+- Numeric fields: `Numeric(18, 2)` for financial values
+- Pydantic schemas use `class Config: from_attributes = True` for ORM mapping
+- Seed data from xbrl_mapping.py: deduplicate (riclass_code, description) pairs across IFRS/ITGAAP dicts
+- Router convention: `APIRouter(prefix="/...", tags=["..."])` with `Depends(get_db)` for session
+- Git identity: `git config user.name "Ralph Agent"` needed on first commit
+- CE subtotals (EBITDA, EBIT, TOT_AMMORTAMENTI, etc.) are used by cruscotto, relazione_ai, cflow — splitting detail lines is safe
+- CE_STRUCTURE entries with empty `riclass_codes` are computed manually in the projection loop, not via growth/seasonality
+- Adding new CE detail lines: update CE_STRUCTURE + computation block + TOT_COSTI_PROD + EBITDA subtotals in ce_projection.py
+
+---
+
+## 2026-02-02 - BE-001
+- What was implemented:
+  - Created `LkpContoSP` and `LkpContoCE` models in `app/db/models/lkp_conti.py`
+  - Created Alembic migration `mdm_11_lkp_conti` that creates and seeds both tables
+  - Extracted 134 SP accounts and 115 CE accounts from xbrl_mapping.py (deduplicated)
+  - Created `GET /api/v1/conti/sp` and `GET /api/v1/conti/ce` endpoints in `app/api/routers/conti.py`
+  - Registered router in `app/main.py`
+  - Registered models in `app/db/base.py`
+- Files changed:
+  - `app/db/models/lkp_conti.py` (new)
+  - `app/api/routers/conti.py` (new)
+  - `alembic/versions/mdm_11_lkp_conti.py` (new)
+  - `app/db/base.py` (added import)
+  - `app/main.py` (added router registration)
+- **Learnings for future iterations:**
+  - The xbrl_mapping.py has 4 dicts: IFRS_TO_SP_RICLASS, IFRS_TO_CE_RICLASS, ITCC_TO_SP_RICLASS, ITCC_TO_CE_RICLASS
+  - Each maps XBRL concept -> (riclass_code, description) tuple
+  - Unique (code, desc) pairs = seed data for chart of accounts
+  - Code slugification: normalize unicode, replace non-alphanum with underscore, uppercase
+  - Some descriptions appear in both SP and CE (e.g., "Imposte differite") — use suffix to disambiguate PK codes
+---
+
+## 2026-02-02 - BE-002
+- What was implemented:
+  - Created Alembic migration `mdm_12_fin_existing` adding `is_existing`, `debito_residuo_iniziale`, `rate_rimanenti` columns to `mdm_nuovo_finanziamento`
+  - Created `POST /cases/{slug}/upload-finanziamenti-esistenti` CSV upload endpoint in `app/api/routers/finanziamenti.py`
+  - CSV grouped by label → one MdmNuovoFinanziamento(is_existing=True) per label with MdmFinanziamentoSchedule rows
+  - Verified banca_projection.py already includes existing schedules in RATA_FINANZIAMENTI (via get_all_finanziamenti_by_period which queries all finanziamenti regardless of is_existing)
+  - GET /cases/{slug}/finanziamenti already returns is_existing flag (schema already had it)
+- Files changed:
+  - `alembic/versions/mdm_12_finanziamenti_existing.py` (new)
+  - `app/api/routers/finanziamenti.py` (added upload endpoint)
+- **Learnings for future iterations:**
+  - The model and schema already had is_existing, debito_residuo_iniziale, rate_rimanenti fields — only the migration was missing
+  - `get_all_finanziamenti_by_period` already distinguishes existing vs new (skips erogazione for existing)
+  - CSV upload pattern: use `csv.DictReader`, `defaultdict(list)` to group, `db.flush()` to get FK before adding schedule rows
+  - Use `utf-8-sig` encoding for CSV to handle BOM from Excel exports
+  - Italian numbers may use comma as decimal separator — handle with `.replace(",", ".")`
+---
+
+## 2026-02-02 - BE-003
+- What was implemented:
+  - Added `is_existing` Boolean column to `MdmScadenziarioTributario` model
+  - Added `is_existing` field to `ScadenziarioTributarioListOut` schema
+  - Created Alembic migration `mdm_13_sched_existing` adding `is_existing` to `mdm_scadenziario_tributario`
+  - Created `POST /cases/{slug}/upload-scadenziari-esistenti` CSV upload endpoint in `app/api/routers/scadenziario_tributario.py`
+  - CSV grouped by ente → one MdmScadenziarioTributario(is_existing=True) per ente with MdmScadenziarioTributarioRate rows
+  - Verified `get_tributari_by_period` already queries all scadenziari regardless of is_existing, so banca_projection RATA_TRIBUTARI includes imported schedules
+- Files changed:
+  - `app/db/models/mdm_scadenziario_tributario.py` (added is_existing column)
+  - `app/schemas/scadenziario_tributario.py` (added is_existing to ListOut)
+  - `app/api/routers/scadenziario_tributario.py` (added upload endpoint + imports)
+  - `alembic/versions/mdm_13_scadenziario_existing.py` (new)
+- **Learnings for future iterations:**
+  - Same CSV upload pattern as BE-002: DictReader + defaultdict grouping + flush for FK
+  - Tax schedules have 3-part quota (capitale + interessi + sanzioni) vs 2-part for finanziamenti
+  - `get_tributari_by_period` aggregates `importo_rata` (sum of all quotas) — no filtering on is_existing needed
+  - The scadenziario model didn't have is_existing before (unlike finanziamenti which already had it)
+---
+
+## 2026-02-02 - BE-004
+- What was implemented:
+  - Added `DepreciationRates` model to `app/schemas/assumptions.py` with 4 rate fields (fabbricati 3%, impianti 15%, attrezzature 25%, immateriali 20%)
+  - Added `depreciation` field to `AssumptionsData` with default factory for backward compatibility
+  - Split CE projection from 2 depreciation lines (AMMORT_MATERIALI, AMMORT_IMMATERIALI) into 4: AMMORT_MAT_ESISTENTI, AMMORT_MAT_NUOVI, AMMORT_IMMAT_ESISTENTI, AMMORT_IMMAT_NUOVI
+  - Existing depreciation: rolling balance × rate / 12, decreasing as assets deplete
+  - New depreciation: difference between growth-projected total and existing (driven by CE growth_rates)
+  - Updated SP projection to sum 4 depreciation lines for immobilizzazioni reduction
+  - Verified cruscotto.py, relazione_ai.py, cflow_projection.py all use subtotals (EBITDA, TOT_AMMORTAMENTI, etc.) which are correctly computed — no changes needed
+- Files changed:
+  - `app/schemas/assumptions.py` (added DepreciationRates, added depreciation field to AssumptionsData)
+  - `app/services/ce_projection.py` (4-line depreciation split, SP riclass import for opening balances)
+  - `app/services/sp_projection.py` (use 4 depreciation lines instead of 2)
+- **Learnings for future iterations:**
+  - cruscotto.py and relazione_ai.py only use subtotal CE line_codes (EBITDA, EBIT, UTILE_NETTO, TOT_AMMORTAMENTI) — splitting detail lines doesn't affect them
+  - cflow_projection.py uses TOT_AMMORTAMENTI as add-back — also unaffected by detail line splits
+  - CE_STRUCTURE entries with empty riclass_codes `[]` are computed manually in the loop (not via growth/seasonality)
+  - SP riclass codes have "SP_" prefix, CE riclass codes have "CE_" prefix — both stripped when loading
+  - Opening immobilizzazioni nette = lordo + fondo (fondo is negative in SP), so adding them gives net value
+  - The `aliquota_ammort_impianti` is used as weighted average for all material assets (simplification)
+---
+
+## 2026-02-02 - BE-005
+- What was implemented:
+  - Added `pct_tfr` field (default 0.0691 = 6.91%) to `CeDrivers` in `app/schemas/assumptions.py`
+  - Added `ACCANTONAMENTO_TFR` CE line in `ce_projection.py` CE_STRUCTURE (after COSTI_PERSONALE)
+  - TFR accrual computed as `abs(COSTI_PERSONALE) × pct_tfr` each month
+  - Included ACCANTONAMENTO_TFR in TOT_COSTI_PROD and EBITDA calculations
+  - Updated SP projection: `fondi` (TFR liability) now grows by monthly TFR accrual
+  - cflow_projection.py already tracks DELTA_TFR from SP TFR line — no changes needed
+- Files changed:
+  - `app/schemas/assumptions.py` (added pct_tfr to CeDrivers)
+  - `app/services/ce_projection.py` (new CE line, TFR computation, updated subtotals)
+  - `app/services/sp_projection.py` (TFR liability grows by monthly accrual)
+- **Learnings for future iterations:**
+  - Adding new CE detail lines requires updating 3 places in ce_projection.py: CE_STRUCTURE, the computation block, and both TOT_COSTI_PROD and EBITDA subtotal calculations
+  - cflow_projection.py already reads DELTA_TFR from SP TFR line changes — so making fondi dynamic automatically flows through to cash flow
+  - New CE line with empty riclass_codes `[]` = manually computed in the loop (not driven by growth/seasonality)
+  - Backward compatibility: pct_tfr has a default value, so existing assumptions without it will use 6.91%
+---
