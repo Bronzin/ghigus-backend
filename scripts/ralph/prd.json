@@ -91,7 +91,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Low volume data. Simple model. Query by (case_id, scenario_id, period_index)."
     },
     {
@@ -105,7 +105,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Quick fix. Check category names against attivo.py _ATTIVO_CATEGORIES to get exact strings."
     },
     {
@@ -120,7 +120,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "This is the bridge between DB and CNC generator. Format numbers with locale or manual formatting: '{:,.2f}'.format(v).replace(',','X').replace('.',',').replace('X','.'). Use Decimal for all computations."
     },
     {
@@ -136,7 +136,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Port directly from ghigus-cnc/src/prompts.py and ai_generator.py. Keep the same prompt text and logic. Model default: gpt-4o-mini, temperature 0.7, max_tokens 1200."
     },
     {

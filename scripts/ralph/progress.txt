@@ -6,7 +6,7 @@ Started: Mon Feb  2 13:01:41 CET 2026
 - Models inherit from `Base` in `app/db/base_class.py`, registered via import in `app/db/base.py`
 - Routers registered in `app/main.py` with try/except pattern for optional loading
 - Alembic migrations use custom revision IDs like `mdm_XX_description`, chain via `down_revision`
-- Latest migration: `mdm_13_sched_existing` (chain: mdm_10 → mdm_11 → mdm_12 → mdm_13)
+- Latest migration: `mdm_14_imm_fin` (chain: mdm_10 → mdm_11 → mdm_12 → mdm_13 → mdm_14)
 - Use `.venv/Scripts/python.exe` for running Python (Windows WSL2 with Windows venv)
 - No mypy installed; quality checks = import test + app startup test
 - Numeric fields: `Numeric(18, 2)` for financial values
@@ -17,6 +17,10 @@ Started: Mon Feb  2 13:01:41 CET 2026
 - CE subtotals (EBITDA, EBIT, TOT_AMMORTAMENTI, etc.) are used by cruscotto, relazione_ai, cflow — splitting detail lines is safe
 - CE_STRUCTURE entries with empty `riclass_codes` are computed manually in the projection loop, not via growth/seasonality
 - Adding new CE detail lines: update CE_STRUCTURE + computation block + TOT_COSTI_PROD + EBITDA subtotals in ce_projection.py
+- Italian number formatting: `'{:,.Nf}'.format(v).replace(',','X').replace('.',',').replace('X','.')` — N=0 for integers, N=2 for currency
+- CNC adapter pattern: each function takes (db, case_id, scenario_id) → list[list[str]] with header row; CE/CFlow annual=sum, SP annual=year-end snapshot
+- CNC AI: cnc_ai.generate_comment() is the main entry point; use_mock defaults to CNC_USE_MOCK env var; mock mode returns Italian placeholder text
+- CNC config: CNC_USE_MOCK, OPENAI_API_KEY, OPENAI_MODEL in app/core/config.py Settings (also read via os.environ in cnc_ai.py for standalone use)
 
 ---
 
@@ -119,4 +123,94 @@ Started: Mon Feb  2 13:01:41 CET 2026
   - cflow_projection.py already reads DELTA_TFR from SP TFR line changes — so making fondi dynamic automatically flows through to cash flow
   - New CE line with empty riclass_codes `[]` = manually computed in the loop (not driven by growth/seasonality)
   - Backward compatibility: pct_tfr has a default value, so existing assumptions without it will use 6.91%
+---
+
+## 2026-02-02 - BE-006
+- What was implemented:
+  - Created `MdmImmFinMovimento` model in `app/db/models/mdm_imm_fin.py` with fields: id, case_id, scenario_id, label, period_index, tipo (ACQUISIZIONE/DISMISSIONE), importo
+  - Created Alembic migration `mdm_14_imm_fin` creating `mdm_imm_fin_movimenti` table with indexes
+  - Created Pydantic schemas in `app/schemas/imm_fin.py` (ImmFinMovimentoOut, ImmFinMovimentoCreate, ImmFinMovimentiResponse)
+  - Created full CRUD router in `app/api/routers/imm_fin.py` (GET list, POST create, GET detail, PUT update, DELETE)
+  - Updated `sp_projection.py`: IMMOB_FINANZIARIE now changes monthly based on acquisitions minus disposals
+  - Updated `banca_projection.py`: added DISINVESTIMENTI_FIN to ENTRATE and INVESTIMENTI_FIN to USCITE
+  - Registered model in `app/db/base.py` and router in `app/main.py`
+- Files changed:
+  - `app/db/models/mdm_imm_fin.py` (new)
+  - `alembic/versions/mdm_14_imm_fin.py` (new)
+  - `app/schemas/imm_fin.py` (new)
+  - `app/api/routers/imm_fin.py` (new)
+  - `app/db/base.py` (added import)
+  - `app/main.py` (added router registration)
+  - `app/services/sp_projection.py` (IMMOB_FINANZIARIE dynamic with movements)
+  - `app/services/banca_projection.py` (added INVESTIMENTI_FIN and DISINVESTIMENTI_FIN lines)
+- **Learnings for future iterations:**
+  - Adding new banca lines: add to entrate_lines or uscite_lines list AND update totale_entrate/totale_uscite sum
+  - SP projection immob_fin was previously constant — now dynamic via MdmImmFinMovimento query
+  - CRUD router pattern: _ensure_case() + query by case_id/scenario_id + standard HTTP methods
+  - tipo field uses simple String(32) rather than SQLAlchemy Enum for flexibility
+  - Banca projection queries data outside the loop (build by_period dicts), then reads inside loop per period
+---
+
+## 2026-02-02 - BE-007
+- What was implemented:
+  - Fixed `compute_pfn_from_mdm()` to properly separate liquidita (cash: DISPONIBILITA_LIQUIDE, CASSA, BANCA_CC) from attivita_finanziarie (financial assets: ATTIVITA_FINANZIARIE, TITOLI, IMMOBILIZZAZIONI_FINANZIARIE)
+  - Removed hardcoded `attivita_finanziarie: 0.0` — now sums actual attivo items with financial asset categories
+  - PFN formula now: `debiti_bt + debiti_mlt - liquidita - attivita_finanziarie`
+  - Fixed `compute_pfn_from_projections()` to include `IMMOB_FINANZIARIE` SP line in addition to `CASSA`
+  - Added `attivita_finanziarie` field to `PfnProjectionEntry` schema (default 0.0 for backward compat)
+  - Updated `_interpret_pfn()` to use `liquidita + attivita_finanziarie` for ratio calculation
+- Files changed:
+  - `app/services/pfn.py` (split categories, fix both compute functions)
+  - `app/schemas/finanziamento.py` (added attivita_finanziarie to PfnProjectionEntry)
+- **Learnings for future iterations:**
+  - Attivo categories in attivo.py use full names (IMMOBILIZZAZIONI_FINANZIARIE) vs SP projection line codes use short names (IMMOB_FINANZIARIE)
+  - PFN has two compute paths: from_mdm (uses MdmAttivoItem/MdmPassivoItem categories) and from_projections (uses MdmSpProjection line_codes)
+  - When adding fields to return dicts, check the Pydantic response schema too — FastAPI will strip unknown fields silently
+---
+
+## 2026-02-02 - BE-008
+- What was implemented:
+  - Created `app/services/cnc_data_adapter.py` with all 14 adapter functions
+  - Functions: get_analisi_economica, get_analisi_finanziaria, get_stato_patrimoniale, get_pfn_table, get_rettifiche_attivo, get_rettifiche_passivo, get_flusso_anno1, get_soddisfacimento_creditori, get_dati_sintesi, get_creditori_non_aderenti, get_creditori_aderenti, get_affitto_table, get_cessione_table, get_prededuzioni_table
+  - Italian number formatting (dot thousands, comma decimals) via _fmt/_fmt2/_fmt_pct helpers
+  - Each returns list[list[str]] with header row + data rows
+  - Missing data handled gracefully (header-only table or empty dict)
+  - CE/CFlow projections aggregated monthly→annually (period_index // 12 + 1)
+  - SP projections use year-end snapshot (last period_index per year)
+  - get_dati_sintesi returns a dict (not a table) with summary metrics
+- Files changed:
+  - `app/services/cnc_data_adapter.py` (new)
+- **Learnings for future iterations:**
+  - Italian number formatting: `'{:,.2f}'.format(v).replace(',','X').replace('.',',').replace('X','.')` works for both int and decimal
+  - CE projections aggregate to annual by summing monthly amounts (period_index // 12 + 1 = year number)
+  - SP projections need year-end snapshot (last month of each year), not sum
+  - CFlow follows same aggregation as CE (sum monthly to annual)
+  - Banca (bank cash flow) is best shown monthly for year 1 (period 0-11)
+  - MdmConcordatoMonthly last period per creditor_class gives final satisfaction percentages
+  - MdmPassivoTipologia sezione field: "NON_ADERENTE" or "ADERENTE" for creditor grouping
+  - The adapter is a pure data bridge — no business logic, just queries + formatting
+---
+
+## 2026-02-02 - BE-009
+- What was implemented:
+  - Created `app/services/cnc_prompts.py` with `PromptBuilder` class — all 9 prompt types ported from ghigus-cnc/src/prompts.py
+  - Created `app/services/cnc_ai.py` with `AIResponse` dataclass, `generate_comment()`, `list_prompt_types()`, `_extract_periodo()`, mock mode and OpenAI API mode
+  - Added `openai>=1.0` to `requirements.txt`
+  - Added `CNC_USE_MOCK`, `OPENAI_API_KEY`, `OPENAI_MODEL` to `app/core/config.py` Settings
+  - Updated `.env.example` with CNC configuration variables
+  - Mock mode returns plausible Italian financial analysis text for all 9 prompt types
+  - API mode uses OpenAI client with configurable model (default gpt-4o-mini), temperature 0.7, max_tokens 1200
+- Files changed:
+  - `app/services/cnc_prompts.py` (new)
+  - `app/services/cnc_ai.py` (new)
+  - `app/core/config.py` (added CNC settings)
+  - `requirements.txt` (added openai)
+  - `.env.example` (added CNC env vars)
+- **Learnings for future iterations:**
+  - The original ghigus-cnc used `rich.console` for logging — replaced with standard `logging` module for backend compatibility
+  - The original used `src.config` imports — replaced with `os.environ` reads in cnc_ai.py for env vars (CNC_USE_MOCK, OPENAI_API_KEY, OPENAI_MODEL)
+  - PromptBuilder is stateless (just prompt text construction) — safe as module-level singleton
+  - `_extract_periodo` handles both "2024" and "2.024" (Italian thousands separator) year formats in table headers
+  - Each prompt type has different kwargs: analisi_economica/finanziaria/stato_patrimoniale/pfn take (table_data, periodo); rettifiche take (table_data, anno_riferimento); piano_flussi/creditori take (table_data, anno); conclusioni takes (dati_sintesi)
+  - generate_comment() dispatches to correct PromptBuilder method based on prompt_type string
 ---
