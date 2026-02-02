@@ -1,10 +1,15 @@
 # app/api/routers/finanziamenti.py
 """Router per nuovi finanziamenti, PFN, sostenibilita' e attivo schedule."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
+import csv
+import io
+from decimal import Decimal, InvalidOperation
+from collections import defaultdict
+from datetime import datetime
 
 from app.db.session import get_db
 from app.db.models.mdm_attivo import MdmAttivoItem
@@ -73,6 +78,104 @@ def remove_finanziamento(slug: str, fin_id: int, db: Session = Depends(get_db)):
     if not delete_finanziamento(db, fin_id):
         raise HTTPException(status_code=404, detail="Finanziamento non trovato")
     return {"ok": True}
+
+
+@router.post("/cases/{slug}/upload-finanziamenti-esistenti",
+             response_model=FinanziamentiResponse)
+def upload_finanziamenti_esistenti(
+    slug: str,
+    file: UploadFile = File(...),
+    scenario: str = Query("base"),
+    db: Session = Depends(get_db),
+):
+    """Import pre-existing financing schedules from CSV.
+
+    CSV columns: label, period_index, quota_capitale, quota_interessi
+    One row per month per financing. Rows are grouped by label.
+    """
+    _ensure_case(db, slug)
+
+    from app.db.models.mdm_finanziamento import MdmNuovoFinanziamento, MdmFinanziamentoSchedule
+
+    content = file.file.read().decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(content))
+
+    required_cols = {"label", "period_index", "quota_capitale", "quota_interessi"}
+    if reader.fieldnames is None or not required_cols.issubset(
+        {c.strip().lower() for c in reader.fieldnames}
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV must contain columns: {', '.join(sorted(required_cols))}",
+        )
+
+    # Normalise header names (strip whitespace, lowercase)
+    col_map = {c.strip().lower(): c for c in reader.fieldnames} if reader.fieldnames else {}
+
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for lineno, row in enumerate(reader, start=2):
+        try:
+            label = row[col_map["label"]].strip()
+            period_index = int(row[col_map["period_index"]].strip())
+            quota_capitale = Decimal(row[col_map["quota_capitale"]].strip().replace(",", "."))
+            quota_interessi = Decimal(row[col_map["quota_interessi"]].strip().replace(",", "."))
+        except (ValueError, InvalidOperation, KeyError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parse error on line {lineno}: {e}",
+            )
+        if not label:
+            raise HTTPException(status_code=400, detail=f"Empty label on line {lineno}")
+        grouped[label].append({
+            "period_index": period_index,
+            "quota_capitale": quota_capitale,
+            "quota_interessi": quota_interessi,
+        })
+
+    if not grouped:
+        raise HTTPException(status_code=400, detail="CSV is empty or has no valid rows")
+
+    created_fins: list[MdmNuovoFinanziamento] = []
+    for label, rows in grouped.items():
+        rows.sort(key=lambda r: r["period_index"])
+        tot_capitale = sum(r["quota_capitale"] for r in rows)
+
+        fin = MdmNuovoFinanziamento(
+            case_id=slug,
+            scenario_id=scenario,
+            label=label,
+            importo_capitale=tot_capitale,
+            tasso_annuo=Decimal("0"),
+            durata_mesi=len(rows),
+            mese_erogazione=rows[0]["period_index"],
+            tipo_ammortamento="FRANCESE",
+            is_existing=True,
+            debito_residuo_iniziale=tot_capitale,
+            rate_rimanenti=len(rows),
+            created_at=datetime.utcnow(),
+        )
+        db.add(fin)
+        db.flush()
+
+        residuo = tot_capitale
+        for r in rows:
+            rata = r["quota_capitale"] + r["quota_interessi"]
+            residuo -= r["quota_capitale"]
+            db.add(MdmFinanziamentoSchedule(
+                finanziamento_id=fin.id,
+                period_index=r["period_index"],
+                quota_capitale=r["quota_capitale"],
+                quota_interessi=r["quota_interessi"],
+                rata=rata,
+                debito_residuo=max(residuo, Decimal("0")),
+            ))
+
+        created_fins.append(fin)
+
+    db.commit()
+
+    all_items = get_finanziamenti(db, slug, scenario)
+    return FinanziamentiResponse(case_id=slug, items=all_items, count=len(all_items))
 
 
 # ── Attivo Schedule (incassi mensili) ─────────────────────────
