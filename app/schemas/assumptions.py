@@ -161,6 +161,18 @@ class ParametriConcordato(BaseModel):
     usa_cassa_disponibile: bool = True
 
 
+class DepreciationRates(BaseModel):
+    """
+    Aliquote di ammortamento per tipologia di cespite.
+    Usate per separare ammortamenti esistenti vs nuovi (da capex).
+    Valori espressi come percentuale annua (es. 0.03 = 3%).
+    """
+    aliquota_ammort_fabbricati: float = 0.03
+    aliquota_ammort_impianti: float = 0.15
+    aliquota_ammort_attrezzature: float = 0.25
+    aliquota_ammort_immateriali: float = 0.20
+
+
 class CeLineDriver(BaseModel):
     """
     Driver di proiezione per una singola voce CE.
@@ -205,6 +217,7 @@ class AssumptionsData(BaseModel):
     sp_drivers: SpDrivers = Field(default_factory=SpDrivers)
     liquidazione: ParametriLiquidazione = Field(default_factory=ParametriLiquidazione)
     concordato: ParametriConcordato = Field(default_factory=ParametriConcordato)
+    depreciation: DepreciationRates = Field(default_factory=DepreciationRates)
     custom: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:

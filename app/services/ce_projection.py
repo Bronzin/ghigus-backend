@@ -56,7 +56,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional
 
 from app.db.models.mdm_projections import MdmCeProjection
-from app.db.models.final import CeRiclass
+from app.db.models.final import CeRiclass, SpRiclass
 from app.services.assumptions import get_assumptions_or_default
 from app.services.prededuzione import get_prededuzione
 from app.services.affitto import get_affitto
@@ -87,8 +87,10 @@ CE_STRUCTURE = [
     ("SERVIZI",             "Costi per servizi",                        "COSTI_PRODUZIONE", ["SERVIZI"],                -1, False),
     ("GODIMENTO_TERZI",     "Costi per godimento beni di terzi",        "COSTI_PRODUZIONE", ["GODIMENTO_BENI_TERZI"],   -1, False),
     ("COSTI_PERSONALE",     "Costi del personale",                      "COSTI_PRODUZIONE", ["COSTI_PERSONALE"],        -1, False),
-    ("AMMORT_IMMATERIALI",  "Ammortamenti immobilizzazioni immateriali", "COSTI_PRODUZIONE", ["AMMORTAMENTI_IMMATERIALI"], -1, False),
-    ("AMMORT_MATERIALI",    "Ammortamenti immobilizzazioni materiali",   "COSTI_PRODUZIONE", ["AMMORTAMENTI_MATERIALI"], -1, False),
+    ("AMMORT_IMMAT_ESISTENTI", "Ammort. immateriali da bilancio",          "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
+    ("AMMORT_IMMAT_NUOVI",     "Nuovi ammort. immateriali",                "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
+    ("AMMORT_MAT_ESISTENTI",   "Ammort. materiali da bilancio",            "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
+    ("AMMORT_MAT_NUOVI",       "Nuovi ammort. materiali",                  "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
     ("ACCANTONAMENTI",      "Accantonamenti per rischi e oneri",         "COSTI_PRODUZIONE", ["ACCANTONAMENTI"],         -1, False),
     ("ONERI_DIVERSI",       "Oneri diversi di gestione",                 "COSTI_PRODUZIONE", ["ONERI_DIVERSI_DI_GESTIONE"], -1, False),
     ("COSTI_AFFITTO",       "Canone affitto d'azienda",                  "COSTI_PRODUZIONE", [],                         -1, False),  # da assumptions
@@ -236,6 +238,38 @@ def compute_ce_projections(
     for r in affitto_rows:
         affitto_by_period[r.period_index] = r.canone or ZERO
 
+    # ── 2b. Opening asset balances from SP riclass (for depreciation split) ──
+    sp_data: Dict[str, D] = {}
+    for row in db.query(SpRiclass).filter(SpRiclass.case_id == case_id).all():
+        code = row.riclass_code
+        if code.startswith("SP_"):
+            code = code[3:]
+        sp_data[code] = sp_data.get(code, ZERO) + (row.amount or ZERO)
+
+    # Opening asset values (net of accumulated depreciation)
+    immob_mat_opening = (
+        sp_data.get("IMMOBILIZZAZIONI_MATERIALI", ZERO)
+        + sp_data.get("F_DO_AMM_TO_IMM_NI_MATERIALI", ZERO)
+    )
+    immob_immat_opening = (
+        sp_data.get("IMMOBILIZZAZIONI_IMMATERIALI", ZERO)
+        + sp_data.get("F_DO_AMM_TO_IMM_NI_IMMATERIALI", ZERO)
+    )
+
+    # Depreciation rates from assumptions
+    depr = assumptions.depreciation
+    # Weighted average material rate (mid-point of fabbricati, impianti, attrezzature)
+    aliquota_mat = D(str(depr.aliquota_ammort_impianti))
+    aliquota_immat = D(str(depr.aliquota_ammort_immateriali))
+
+    # Old-style base annual depreciation from CE riclass (used as fallback and for new depr via growth)
+    ce_base_ammort_mat = abs(ce_base.get("AMMORTAMENTI_MATERIALI", ZERO))
+    ce_base_ammort_immat = abs(ce_base.get("AMMORTAMENTI_IMMATERIALI", ZERO))
+
+    # Rolling balances for existing asset depreciation
+    remaining_mat = abs(immob_mat_opening)
+    remaining_immat = abs(immob_immat_opening)
+
     # ── 3. Genera proiezioni per periodo ──
     count = 0
 
@@ -253,6 +287,37 @@ def compute_ce_projections(
                     monthly = _compute_monthly_amount(base, pi, start_month, driver)
                     total += monthly
                 amounts[line_code] = total * sign
+
+        # ── Depreciation: 4-line split ──
+        # Existing depreciation = opening_balance × rate / 12, decreasing as assets deplete
+        monthly_depr_mat_esist = min(
+            (remaining_mat * aliquota_mat / 12).quantize(D("0.01")),
+            remaining_mat,
+        ) if remaining_mat > ZERO else ZERO
+        monthly_depr_immat_esist = min(
+            (remaining_immat * aliquota_immat / 12).quantize(D("0.01")),
+            remaining_immat,
+        ) if remaining_immat > ZERO else ZERO
+
+        # Reduce remaining balances
+        remaining_mat = max(remaining_mat - monthly_depr_mat_esist, ZERO)
+        remaining_immat = max(remaining_immat - monthly_depr_immat_esist, ZERO)
+
+        # New depreciation: driven by growth on old CE base (if growth_rates configured)
+        # Total depreciation from growth-based projection
+        driver_mat = drivers.get("AMMORTAMENTI_MATERIALI")
+        driver_immat = drivers.get("AMMORTAMENTI_IMMATERIALI")
+        total_proj_mat = _compute_monthly_amount(ce_base_ammort_mat, pi, start_month, driver_mat)
+        total_proj_immat = _compute_monthly_amount(ce_base_ammort_immat, pi, start_month, driver_immat)
+
+        # New = max(0, projected_total - existing)
+        monthly_depr_mat_nuovi = max(total_proj_mat - monthly_depr_mat_esist, ZERO)
+        monthly_depr_immat_nuovi = max(total_proj_immat - monthly_depr_immat_esist, ZERO)
+
+        amounts["AMMORT_MAT_ESISTENTI"] = -monthly_depr_mat_esist
+        amounts["AMMORT_MAT_NUOVI"] = -monthly_depr_mat_nuovi
+        amounts["AMMORT_IMMAT_ESISTENTI"] = -monthly_depr_immat_esist
+        amounts["AMMORT_IMMAT_NUOVI"] = -monthly_depr_immat_nuovi
 
         # ── Override oneri finanziari per convergenza SP↔Banca ──
         if interest_override is not None and pi in interest_override:
@@ -275,14 +340,21 @@ def compute_ce_projections(
         )
         amounts["TOT_VALORE_PROD"] = tot_valore_prod
 
+        # Total depreciation (sum of 4 lines, all negative)
+        tot_ammort_lines = (
+            amounts["AMMORT_MAT_ESISTENTI"]
+            + amounts["AMMORT_MAT_NUOVI"]
+            + amounts["AMMORT_IMMAT_ESISTENTI"]
+            + amounts["AMMORT_IMMAT_NUOVI"]
+        )
+
         # B) Costi della produzione (tutti negativi, il totale è la somma dei valori negativi)
         tot_costi_prod = (
             amounts.get("MATERIE_PRIME", ZERO)
             + amounts.get("SERVIZI", ZERO)
             + amounts.get("GODIMENTO_TERZI", ZERO)
             + amounts.get("COSTI_PERSONALE", ZERO)
-            + amounts.get("AMMORT_IMMATERIALI", ZERO)
-            + amounts.get("AMMORT_MATERIALI", ZERO)
+            + tot_ammort_lines
             + amounts.get("ACCANTONAMENTI", ZERO)
             + amounts.get("ONERI_DIVERSI", ZERO)
             + amounts.get("COSTI_AFFITTO", ZERO)
@@ -302,8 +374,7 @@ def compute_ce_projections(
 
         # Totale ammortamenti + accantonamenti
         tot_ammort = (
-            amounts.get("AMMORT_IMMATERIALI", ZERO)
-            + amounts.get("AMMORT_MATERIALI", ZERO)
+            tot_ammort_lines
             + amounts.get("ACCANTONAMENTI", ZERO)
         )
         amounts["TOT_AMMORTAMENTI"] = tot_ammort

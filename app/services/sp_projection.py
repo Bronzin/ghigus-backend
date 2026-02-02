@@ -146,8 +146,15 @@ def compute_sp_projections(db: Session, case_id: str, scenario_id: str = "base")
 
     for pi in range(duration):
         utile_mese = ce_get(pi, "UTILE_NETTO")
-        ammort_immat = abs(ce_get(pi, "AMMORT_IMMATERIALI"))
-        ammort_mat = abs(ce_get(pi, "AMMORT_MATERIALI"))
+        # Sum all 4 depreciation lines (existing + new for each asset type)
+        ammort_immat = (
+            abs(ce_get(pi, "AMMORT_IMMAT_ESISTENTI"))
+            + abs(ce_get(pi, "AMMORT_IMMAT_NUOVI"))
+        )
+        ammort_mat = (
+            abs(ce_get(pi, "AMMORT_MAT_ESISTENTI"))
+            + abs(ce_get(pi, "AMMORT_MAT_NUOVI"))
+        )
         preded_pag = preded_by_period.get(pi, ZERO)
 
         # ── Immobilizzazioni: si riducono per ammortamento ──
