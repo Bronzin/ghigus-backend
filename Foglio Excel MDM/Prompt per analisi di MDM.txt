@@ -1,0 +1,143 @@
+In questo file vi è prima un prompt per una analisi tecnica e poi uno per una analisi più funzionale e semplice
+
+Ciao ChatGPT 👋
+Ti fornirò un file Excel chiamato “MDM - Accordi di ristrutturazione debiti cont_indiretta.xlsx”.
+Voglio che tu esegua una analisi tecnica approfondita del suo funzionamento interno, non una semplice descrizione dei dati.
+
+Analizza il file come farebbe un consulente esperto in modelli Excel finanziari, e strutturami la risposta in sezioni chiare, con un linguaggio tecnico ma leggibile.
+
+🔹 1. Architettura generale
+
+Elenca tutti i fogli presenti nel file e descrivi il ruolo di ciascuno.
+
+Spiega come sono collegati tra loro (es. formule incrociate, riferimenti a celle di altri fogli, ecc.).
+
+Indica la presenza di tabelle Excel, nomi definiti, intervalli dinamici, formule strutturate o macro/VBA.
+
+🔹 2. Logica di calcolo
+
+Analizza e spiega le formule principali (inclusi annidamenti complessi).
+
+Ricostruisci il flusso logico dei dati: da dove arrivano gli input, come vengono elaborati, e dove si trovano i risultati finali.
+
+Evidenzia le celle chiave di input (parametri modificabili) e le celle di output (risultati, totali, indici, ecc.).
+
+🔹 3. Dipendenze e automatismi
+
+Descrivi come il file propaga i calcoli tra fogli e formule.
+
+Analizza l’uso di funzioni come CERCA.VERT / XLOOKUP, SOMMA.SE, INDIRETTO, SE.ERRORE, OFFSET, ecc.
+
+Verifica se ci sono collegamenti esterni, intervalli dinamici, formule condizionali o automatismi di aggiornamento.
+
+🔹 4. Obiettivo e logica operativa
+
+Deduce qual è lo scopo principale del file (es. gestione di accordi di ristrutturazione debiti).
+
+Spiega in che modo il file raggiunge questo obiettivo: descrivi il flusso delle informazioni, da input a report finale.
+
+🔹 5. Criticità e suggerimenti
+
+Individua eventuali criticità tecniche (formule ridondanti, riferimenti errati, scarsa scalabilità, ecc.).
+
+Suggerisci miglioramenti tecnici e strutturali, come:
+
+uso di Power Query o tabelle strutturate,
+
+nomi definiti per evitare riferimenti diretti,
+
+semplificazione formule o separazione tra input/calcolo/output,
+
+automatismi tramite VBA o Power Automate.
+
+🔹 6. Visualizzazioni e reporting
+
+Indica la presenza di grafici, tabelle pivot o report riepilogativi, e spiega come vengono alimentati.
+
+Suggerisci eventuali dashboard o layout migliorativi.
+
+🔹 7. Macro o VBA (se presenti)
+
+Mostra il codice VBA (se c’è) e descrivi in modo tecnico e sintetico cosa fa ciascuna routine, come viene richiamata e su quali fogli agisce.
+
+🔹 8. Mappa del flusso logico
+
+Concludi con una rappresentazione sintetica (diagramma testuale o elenco puntato) del flusso dei dati:
+
+Input → Elaborazione → Output / Report finale
+
+Specifica quali fogli intervengono in ogni fase.
+
+🟢 Nota importante: concentra l’analisi sul funzionamento tecnico e logico del file, non sul significato economico-finanziario dei dati.
+
+👉 Dopo aver caricato il file, inizia subito l’analisi con questo prompt.
+
+
+---------------------------------------------------------
+
+
+🎯 Prompt per Analisi Funzionale del File Excel
+
+Istruzioni per l’AI:
+Hai a disposizione un file Excel chiamato “MDM - Accordi di ristrutturazione debiti cont_indiretta.xlsx”.
+Esegui una analisi funzionale completa, ovvero una spiegazione in linguaggio semplice ma tecnico del funzionamento interno del file.
+L’obiettivo è far capire a chi legge come il file opera, senza usare un linguaggio troppo da sviluppatore Excel, ma descrivendo i meccanismi principali che fanno girare il modello.
+
+Il lettore ideale è una persona che deve usare, comprendere o documentare il file, non necessariamente costruirlo.
+
+🧭 Struttura della risposta:
+🔹 1. Scopo del file
+
+Spiega a cosa serve il file, qual è il suo obiettivo pratico (es. supportare la gestione di accordi di ristrutturazione del debito).
+
+Descrivi in parole semplici cosa produce: report, scenari, previsioni, bilanci riclassificati, ecc.
+
+🔹 2. Come è organizzato il file
+
+Elenca i fogli principali e spiega a cosa serve ciascuno (senza entrare nel dettaglio tecnico delle formule).
+
+Raggruppali per funzione (Input, Calcolo, Report, Dashboard).
+
+Spiega in che ordine vengono usati (es. “prima si inseriscono i dati, poi il file elabora, infine si leggono i risultati nei report”).
+
+🔹 3. Flusso dei dati
+
+Descrivi il percorso dei dati:
+
+Input → dove si inseriscono i parametri o le anagrafiche.
+
+Elaborazione → dove il file combina e calcola i dati.
+
+Output → dove appaiono i risultati finali.
+
+Spiega con parole semplici come si passa da un foglio all’altro (es. “le informazioni inserite in Attivo e Passivo vengono lette dai fogli di raccordo, che le riclassificano e le riportano nei prospetti finali”).
+
+🔹 4. Cosa deve fare l’utente
+
+Indica dove l’utente deve intervenire (celle editabili, menù a tendina, parametri).
+
+Spiega quali sono le azioni tipiche (es. impostare una data, scegliere un’opzione, aggiornare un elenco).
+
+🔹 5. Cosa calcola automaticamente il file
+
+Descrivi quali risultati vengono generati automaticamente, grazie alle formule.
+
+Spiega che tipo di elaborazioni fa il file (es. riclassifiche, aggregazioni mensili, simulazioni di piano, ecc.).
+
+Specifica dove si trovano i risultati finali (es. cruscotto, fogli di report, relazioni).
+
+🔹 6. Logica temporale o previsionale
+
+Se il file usa una data di riferimento o timeline, spiega come cambia il calcolo nel tempo.
+
+Descrivi come vengono gestiti i mesi, anni o scenari futuri.
+
+🔹 7. Output e report
+
+Mostra dove si leggono i risultati principali (dashboard, report sintetici, fogli di relazione).
+
+Spiega cosa rappresentano (es. bilancio riclassificato, cash flow mensile, sintesi degli accordi, ecc.).
+
+🔹 8. In sintesi: come usare il file
+
+Concludi con una mappa semplice tipo:

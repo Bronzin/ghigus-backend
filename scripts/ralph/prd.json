@@ -1,0 +1,177 @@
+{
+  "project": "Ghigus Backend",
+  "branchName": "ralph/delta-close-cnc-integration",
+  "description": "Close remaining deltas between Excel MDM and backend, integrate CNC PowerPoint generation into backend API. The backend is a FastAPI app (Python 3.11+, SQLAlchemy 2, Alembic, PostgreSQL/SQLite) in app/. The main pipeline is orchestrated by app/services/mdm_engine.py which runs 6 phases with a convergence loop. All monetary values use Decimal. Italian number formatting required (dot thousands, comma decimals).",
+  "userStories": [
+    {
+      "id": "BE-001",
+      "title": "Piano dei Conti master data model and seed",
+      "description": "Create master data tables for the standard chart of accounts used in reclassification. The Excel MDM has SW_SP_CONTI (116 SP accounts: code, description, category) and SW_CE_CONTI (161 CE accounts). Create models LkpContoSP and LkpContoCE in app/db/models/ with fields: code (VARCHAR PK), description (VARCHAR), category (VARCHAR). Create an Alembic migration that creates and seeds both tables using the riclass_code/desc pairs already defined in app/services/xbrl_mapping.py (IFRS_SP_MAP, IFRS_CE_MAP, ITGAAP_SP_MAP, ITGAAP_CE_MAP — extract unique riclass targets). Add GET /api/v1/conti/sp and GET /api/v1/conti/ce endpoints returning the full lists.",
+      "acceptanceCriteria": [
+        "New models LkpContoSP and LkpContoCE in app/db/models/",
+        "Alembic migration creates and seeds both tables",
+        "GET /api/v1/conti/sp and GET /api/v1/conti/ce endpoints return the full list",
+        "Typecheck passes",
+        "Server starts without errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Extract seed data from the existing xbrl_mapping.py constants. Deduplicate riclass codes across IFRS and ITGAAP maps."
+    },
+    {
+      "id": "BE-002",
+      "title": "Import existing financing schedules (pre-existing loans)",
+      "description": "The Excel MDM has SW_FOR_FIN_OF-01 and SW_FOR_FIN_QC-01 for importing existing bank loan amortization schedules (interest and principal monthly). Currently the backend only handles NEW financings created manually via POST /cases/{slug}/finanziamenti. Add support for importing pre-existing financing schedules. Add a boolean field is_existing to MdmNuovoFinanziamento (default False). Create endpoint POST /cases/{slug}/upload-finanziamenti-esistenti that accepts a CSV with columns: label, period_index (int, 0-based), quota_capitale (Decimal), quota_interessi (Decimal). Group rows by label, create one MdmNuovoFinanziamento(is_existing=True) per label, then create MdmFinanziamentoSchedule rows. Update app/services/projections/banca_projection.py to include existing financing schedules in RATA_FINANZIAMENTI and PAG_ONERI_FIN lines (query MdmFinanziamentoSchedule regardless of is_existing).",
+      "acceptanceCriteria": [
+        "is_existing boolean field added to MdmNuovoFinanziamento with migration",
+        "POST /cases/{slug}/upload-finanziamenti-esistenti accepts CSV and stores data",
+        "banca_projection.py includes existing schedules in RATA_FINANZIAMENTI and PAG_ONERI_FIN",
+        "GET /cases/{slug}/finanziamenti returns both existing and new with is_existing flag",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "CSV format: label,period_index,quota_capitale,quota_interessi. One row per month per financing. Use csv.DictReader for parsing."
+    },
+    {
+      "id": "BE-003",
+      "title": "Import existing tax debt schedules (rateizzazioni tributarie)",
+      "description": "The Excel MDM has SW_FOR_TRI_OF-01 and SW_FOR_TRI_QC-01 for existing tax installment plans. Currently the backend only handles manually created scadenziari. Add is_existing boolean to MdmScadenziarioTributario. Create endpoint POST /cases/{slug}/upload-scadenziari-esistenti accepting CSV with columns: ente, period_index, quota_capitale, quota_interessi, quota_sanzioni. Group by ente, create one MdmScadenziarioTributario(is_existing=True) per ente, then create MdmScadenziarioTributarioRate rows. Ensure banca_projection.py RATA_TRIBUTARI already picks these up (it queries all rates by case/scenario).",
+      "acceptanceCriteria": [
+        "is_existing boolean added to MdmScadenziarioTributario with migration",
+        "POST /cases/{slug}/upload-scadenziari-esistenti accepts CSV",
+        "Parsed rows stored correctly in MdmScadenziarioTributarioRate",
+        "banca_projection RATA_TRIBUTARI includes imported schedules",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Same pattern as BE-002 but for tax schedules."
+    },
+    {
+      "id": "BE-004",
+      "title": "Separate depreciation tracking (existing vs new, by asset type)",
+      "description": "The Excel CE-mese has 4 depreciation lines: ammort. materiali da bilancio, ammort. immateriali da bilancio, nuovi ammort. materiali, nuovi ammort. immateriali — each with different rates (buildings 2.5-5%, machinery 10-20%, equipment 25-40%, intangibles 20-33%). Currently ce_projection.py uses single AMMORT_MATERIALI and AMMORT_IMMATERIALI lines. Changes needed: 1) In app/schemas/assumptions.py add to AssumptionsData: aliquota_ammort_fabbricati (default 0.03), aliquota_ammort_impianti (default 0.15), aliquota_ammort_attrezzature (default 0.25), aliquota_ammort_immateriali (default 0.20). 2) In ce_projection.py split into 4 line_codes: AMMORT_MAT_ESISTENTI, AMMORT_MAT_NUOVI, AMMORT_IMMAT_ESISTENTI, AMMORT_IMMAT_NUOVI. Existing depreciation = opening_balance × rate / 12, decreasing as asset depreciates. New depreciation = capex_additions × rate / 12, growing. 3) Update sp_projection.py to use 4-line totals. 4) Update cruscotto.py and relazione_ai.py aggregations. Keep backward compat: if old assumptions lack new fields, default to current single-line behavior.",
+      "acceptanceCriteria": [
+        "4 depreciation line_codes in CE projection",
+        "Depreciation rate fields in AssumptionsData with defaults",
+        "SP projection uses 4-line depreciation for fixed asset reduction",
+        "Cruscotto and relazione_ai aggregate correctly",
+        "Backward compatible with existing assumptions",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "The base opening values come from SpRiclass (IMMOB_MATERIALI, IMMOB_IMMATERIALI). New capex comes from assumptions or future capex model."
+    },
+    {
+      "id": "BE-005",
+      "title": "TFR accrual as separate CE line",
+      "description": "The Excel CE-mese separates personnel cost from TFR accrual (Accantonamento TFR ~6.91% of personnel cost). Currently the backend has single COSTI_PERSONALE. Add ACCANTONAMENTO_TFR as new line_code in ce_projection.py. Add pct_tfr to AssumptionsData.ce_drivers (default Decimal('0.0691')). Monthly TFR = COSTI_PERSONALE × pct_tfr. In sp_projection.py, the TFR liability line should grow by the monthly TFR accrual: TFR[t] = TFR[t-1] + accantonamento_tfr[t]. Update the CE_LINES list, _build_monthly_amounts, and the SP TFR calculation.",
+      "acceptanceCriteria": [
+        "New CE line_code ACCANTONAMENTO_TFR",
+        "pct_tfr in AssumptionsData with default 0.0691",
+        "SP projection TFR grows by monthly accrual",
+        "TOT_COSTI_PROD includes the new TFR line",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Italian TFR is legally ~6.91%. The accrual is a cost in CE and a growing liability in SP."
+    },
+    {
+      "id": "BE-006",
+      "title": "Financial assets register (Imm fin movements)",
+      "description": "The Excel has an 'Imm fin' sheet tracking acquisitions/disposals of equity stakes monthly. Create model MdmImmFinMovimento in app/db/models/ with: id, case_id (FK), scenario_id (FK), label (VARCHAR), period_index (INT), tipo (ENUM: ACQUISIZIONE, DISMISSIONE), importo (Decimal). Alembic migration. CRUD endpoints: POST/GET/PUT/DELETE at /cases/{slug}/imm-fin-movimenti. In sp_projection.py: IMMOB_FINANZIARIE[t] = IMMOB_FINANZIARIE[t-1] + sum(ACQUISIZIONE) - sum(DISMISSIONE) for that period. In banca_projection.py: add INVESTIMENTI_FINANZIARI under USCITE (sum acquisizioni) and DISINVESTIMENTI under ENTRATE (sum dismissioni).",
+      "acceptanceCriteria": [
+        "New model MdmImmFinMovimento with migration",
+        "CRUD endpoints at /cases/{slug}/imm-fin-movimenti",
+        "sp_projection updates IMMOB_FINANZIARIE monthly",
+        "banca_projection has INVESTIMENTI_FINANZIARI and DISINVESTIMENTI lines",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Low volume data. Simple model. Query by (case_id, scenario_id, period_index)."
+    },
+    {
+      "id": "BE-007",
+      "title": "PFN fix — derive attivita finanziarie from actual data",
+      "description": "In app/services/pfn.py line ~66 there is a TODO: attivita_finanziarie is hardcoded to Decimal('0.0'). Fix compute_pfn_from_mdm() to sum MdmAttivoItem.attivo_rettificato for categories in ('DISPONIBILITA_LIQUIDE', 'CASSA', 'BANCA_CC', 'IMM_FINANZIARIE', 'ATTIVITA_FINANZIARIE', 'TITOLI', 'LIQUIDITA_IMMEDIATE'). Fix compute_pfn_from_projections() to include IMMOB_FINANZIARIE from MdmSpProjection in addition to CASSA.",
+      "acceptanceCriteria": [
+        "pfn.compute_pfn_from_mdm() sums correct attivo categories",
+        "pfn.compute_pfn_from_projections() includes IMMOB_FINANZIARIE",
+        "PFN endpoint returns non-zero attivita_finanziarie when data exists",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Quick fix. Check category names against attivo.py _ATTIVO_CATEGORIES to get exact strings."
+    },
+    {
+      "id": "BE-008",
+      "title": "CNC data adapter — transform DB models to slide table format",
+      "description": "Create app/services/cnc_data_adapter.py. This module transforms backend DB data into list[list[str]] table format matching the Excel ranges that the CNC slide generator expects. Italian number formatting (dot thousands, comma decimals). Implement these functions, each taking (db: Session, case_id: int, scenario_id: int) and returning list[list[str]]: 1) get_analisi_economica(): CE riclass multi-year from CeRiclass (group by period, pivot years as columns, rows: Ricavi, Costi Produzione, EBITDA, EBIT, Oneri Finanziari, EBT, Imposte, Utile Netto). 2) get_analisi_finanziaria(): CFlow annual from MdmCflowProjection (aggregate 12-month, rows: Flusso Gestione, Flusso Investimento, Flusso Finanziamento, Variazione Liquidita). 3) get_stato_patrimoniale(): SP riclass multi-year from SpRiclass. 4) get_pfn_table(): from pfn.compute_pfn_from_mdm(). 5) get_rettifiche_attivo(): from MdmAttivoItem (category, saldo, rettifiche, rettificato). 6) get_rettifiche_passivo(): from MdmPassivoItem. 7) get_flusso_anno1(): Monthly banca year 1 from MdmBancaProjection (period 0-11). 8) get_soddisfacimento_creditori(): from MdmConcordatoMonthly last month per class. 9) get_dati_sintesi(): dict with totale_attivo_rettificato, totale_passivo, pct_soddisfazione_medio, durata_piano_mesi, anno_analisi. Also: get_creditori_non_aderenti(), get_creditori_aderenti() from MdmPassivoTipologia; get_affitto_table() from MdmAffittoMonthly; get_cessione_table() from MdmCessioneMonthly; get_prededuzioni_table() from MdmPrededuzioneMonthly.",
+      "acceptanceCriteria": [
+        "All 14 adapter functions implemented",
+        "Italian number formatting (dot thousands, comma decimals)",
+        "Each returns list[list[str]] with header row + data rows",
+        "Handle missing data gracefully (return table with headers only)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "This is the bridge between DB and CNC generator. Format numbers with locale or manual formatting: '{:,.2f}'.format(v).replace(',','X').replace('.',',').replace('X','.'). Use Decimal for all computations."
+    },
+    {
+      "id": "BE-009",
+      "title": "CNC AI prompts module — port from ghigus-cnc",
+      "description": "Port the prompt system from ghigus-cnc/src/prompts.py and ghigus-cnc/src/ai_generator.py into the backend. Create app/services/cnc_prompts.py containing the PromptBuilder class with all 9 prompt types (analisi_economica, analisi_finanziaria, stato_patrimoniale, posizione_finanziaria_netta, rettifiche_attivo, rettifiche_passivo, piano_flussi, piano_creditori, conclusioni). Create app/services/cnc_ai.py with AIGenerator class that supports both mock mode (USE_MOCK env var) and OpenAI API mode (OPENAI_API_KEY, OPENAI_MODEL env vars). The system prompt enforces: cite specific numbers, Italian formatting, calculate % variations, professional tone, 500-700 words per comment. Add openai to requirements.txt.",
+      "acceptanceCriteria": [
+        "app/services/cnc_prompts.py with PromptBuilder and all 9 prompt types",
+        "app/services/cnc_ai.py with mock and API modes",
+        "openai added to requirements.txt",
+        "Mock mode returns plausible Italian comments",
+        "API mode calls OpenAI correctly",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Port directly from ghigus-cnc/src/prompts.py and ai_generator.py. Keep the same prompt text and logic. Model default: gpt-4o-mini, temperature 0.7, max_tokens 1200."
+    },
+    {
+      "id": "BE-010",
+      "title": "CNC PowerPoint generator service",
+      "description": "Create app/services/cnc_generator.py that generates the full CNC PowerPoint presentation. Port the slide generation logic from ghigus-cnc/main.py (CNCGenerator class). The generator should: 1) Accept (db, case_id, scenario_id, use_mock=True). 2) Use cnc_data_adapter.py to get all table data. 3) Use cnc_ai.py to generate AI comments for 9 slides. 4) Create 33 slides using python-pptx with the same formatting (16:9, dark blue headers #1F4E79, alternating rows, Italian numbers). 5) Include ALL 33 slides (no exclusions — slides 19,21,23-27 now have data). 6) Split long AI comments (>250 words) across multiple slides. 7) Return the generated PPTX as bytes (BytesIO). Add python-pptx to requirements.txt. The slide types: titolo, sezione, tabella, commento_ai, testo_statico, testo_manuale — same as ghigus-cnc.",
+      "acceptanceCriteria": [
+        "app/services/cnc_generator.py generates complete PPTX",
+        "All 33 slides generated (no exclusions)",
+        "Table slides formatted correctly (headers, alternating rows, Italian numbers)",
+        "AI comment slides use cnc_ai.py",
+        "Returns BytesIO with valid PPTX",
+        "python-pptx added to requirements.txt",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Port from ghigus-cnc/main.py. Key changes: data comes from cnc_data_adapter instead of openpyxl. Template structure from mapping_config.json stays the same. Company info from Case model instead of Excel MENU sheet."
+    },
+    {
+      "id": "BE-011",
+      "title": "CNC generation API endpoint",
+      "description": "Create the endpoint POST /cases/{slug}/genera-cnc in a new router app/api/routers/cnc.py. The endpoint should: 1) Resolve case by slug. 2) Get default scenario. 3) Call cnc_generator.generate(db, case_id, scenario_id, use_mock=settings.CNC_USE_MOCK). 4) Return the PPTX as StreamingResponse with Content-Disposition: attachment; filename=CNC_Presentazione_{slug}_{timestamp}.pptx and content_type=application/vnd.openxmlformats-officedocument.presentationml.presentation. 5) Handle errors gracefully (404 if case not found, 500 with detail if generation fails). Add CNC_USE_MOCK and OPENAI_API_KEY to app/core/config.py settings. Register the router in app/main.py.",
+      "acceptanceCriteria": [
+        "POST /cases/{slug}/genera-cnc returns downloadable PPTX",
+        "Correct Content-Type and Content-Disposition headers",
+        "404 if case not found",
+        "500 with error detail if generation fails",
+        "CNC_USE_MOCK and OPENAI_API_KEY in config",
+        "Router registered in main.py",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Use FastAPI StreamingResponse with BytesIO. The endpoint may take 30-60 seconds if AI is enabled (9 API calls). Consider adding background task support later."
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(python -c:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(git add:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(ping:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)",
+      "Bash(powershell -Command \"Get-Content ''P:\\\\Github\\\\docs\\\\Input\\\\2W8N8UU78PMDQKZENC08-2023-12-31-it.xhtml'' -TotalCount 50\")",
+      "Bash(powershell:*)",
+      "Bash(ls -la \"P:\\\\Github\\\\ghigus\\\\ghigus-frontend\\\\src\\\\components\\\\mdm\"\" | grep -E \".tsx)",
+      "Bash(.ts \")",
+      "Bash(ls:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: MDM frontend completo con 10 tab + XBRL storico + gap critici\n\n- CasePage con 10 tab: Riepilogo, Storico, Assumptions, Attivo, Passivo,\n  Finanziamenti, Liquidazione, Proiezioni, Concordato, Relazione AI\n- Componenti MDM riutilizzabili: MdmTable, MdmChart, KpiCard, NumberCell,\n  CollapsibleSection, TabBar\n- AttivoTab: rettifiche editabili, toggle modalita'' continuita/realizzo,\n  link a passivo, editor schedule incassi mensili\n- FinanziamentiTab: CRUD nuovi finanziamenti con piano ammortamento\n  \\(francese/italiano/bullet\\)\n- RiepilogoTab: KPI cards, grafico proiezioni, SP sintetico, PFN,\n  semaforo sostenibilita'', dati storici XBRL con delta %\n- StoricoTab: tabella comparativa multi-anno SP/CE/KPI da XBRL\n- Tipi TypeScript per tutti i nuovi endpoint \\(PFN, sostenibilita'',\n  finanziamenti, attivo schedule, XBRL summary\\)\n- API client completo in apiMdm.ts\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm run dev:*)",
+      "Bash(grep:*)",
+      "Bash(git status:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: scadenziari tributari, finanziamenti esistenti, confronto liq vs conc\n\nDelta 1: CRUD scadenziari debiti tributari \\(AdE/INPS\\) con piano rate\n\\(ammortamento italiano + interessi + sanzioni\\), integrazione in banca_projection.\nDelta 2: supporto finanziamenti esistenti \\(debito residuo + rate rimanenti\\).\nDelta 3: confronto liquidazione vs concordato per classe creditore.\nMigration mdm_10.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(del \"P:\\\\Github\\\\ghigus\\\\ghigus-backend\\\\app\\\\services\\\\xbrl_ingest.py\")",
+      "Bash(find:*)",
+      "Bash(.venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(\"P:/Github/ghigus/ghigus-backend/.venv/Scripts/python.exe\" -m uvicorn app.main:app --reload --port 8000)",
+      "Bash(start http://localhost:5176)",
+      "Bash(\"P:/Github/ghigus/ghigus-backend/.venv/Scripts/python.exe\" -m uvicorn:*)",
+      "Bash(findstr:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}
