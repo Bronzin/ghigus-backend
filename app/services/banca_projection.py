@@ -19,6 +19,7 @@ from app.services.iva_settlement import compute_iva_monthly
 from app.services.finanziamenti import get_all_finanziamenti_by_period
 from app.services.scadenziario_tributario import get_tributari_by_period
 from app.db.models.mdm_attivo_schedule import MdmAttivoSchedule
+from app.db.models.mdm_imm_fin import MdmImmFinMovimento
 
 D = Decimal
 ZERO = D(0)
@@ -100,6 +101,20 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
                 attivo_sched_by_period.get(r.period_index, ZERO) + (r.importo or ZERO)
             )
 
+    # Movimenti immobilizzazioni finanziarie
+    imm_fin_acq_by_period: Dict[int, D] = {}
+    imm_fin_dis_by_period: Dict[int, D] = {}
+    for mov in db.query(MdmImmFinMovimento).filter(
+        MdmImmFinMovimento.case_id == case_id,
+        MdmImmFinMovimento.scenario_id == scenario_id,
+    ).all():
+        pi_mov = mov.period_index
+        amt = mov.importo or ZERO
+        if mov.tipo == "ACQUISIZIONE":
+            imm_fin_acq_by_period[pi_mov] = imm_fin_acq_by_period.get(pi_mov, ZERO) + amt
+        elif mov.tipo == "DISMISSIONE":
+            imm_fin_dis_by_period[pi_mov] = imm_fin_dis_by_period.get(pi_mov, ZERO) + amt
+
     count = 0
     saldo_progressivo = ZERO
 
@@ -113,7 +128,8 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
         fin_period = fin_by_period.get(pi, {})
         erogazione_fin = fin_period.get("erogazione", ZERO)
         incasso_attivo_sched = attivo_sched_by_period.get(pi, ZERO)
-        totale_entrate = incasso_clienti + incasso_affitto + incasso_cessione + erogazione_fin + incasso_attivo_sched
+        disinvestimenti_fin = imm_fin_dis_by_period.get(pi, ZERO)
+        totale_entrate = incasso_clienti + incasso_affitto + incasso_cessione + erogazione_fin + incasso_attivo_sched + disinvestimenti_fin
 
         entrate_lines = [
             ("INCASSO_CLIENTI", "Incassi da clienti", incasso_clienti),
@@ -121,6 +137,7 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
             ("INCASSO_CESSIONE", "Incasso cessione azienda", incasso_cessione),
             ("EROGAZIONE_FIN", "Erogazione nuovi finanziamenti", erogazione_fin),
             ("INCASSO_ATTIVO", "Incassi attivo schedulati", incasso_attivo_sched),
+            ("DISINVESTIMENTI_FIN", "Disinvestimenti finanziari", disinvestimenti_fin),
             ("TOTALE_ENTRATE", "Totale entrate", totale_entrate),
         ]
 
@@ -145,7 +162,8 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
 
         rata_fin = fin_period.get("rata", ZERO)
         rata_tributari = tributari_by_period.get(pi, ZERO)
-        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin + rata_fin + rata_tributari
+        investimenti_fin = imm_fin_acq_by_period.get(pi, ZERO)
+        totale_uscite = pag_fornitori + pag_personale + pag_altri + pag_prededuzione + pag_imposte + pag_iva + pag_oneri_fin + rata_fin + rata_tributari + investimenti_fin
 
         uscite_lines = [
             ("PAG_FORNITORI", "Pagamenti fornitori", pag_fornitori),
@@ -157,6 +175,7 @@ def compute_banca_projections(db: Session, case_id: str, scenario_id: str = "bas
             ("PAG_ONERI_FIN", "Pagamenti oneri finanziari", pag_oneri_fin),
             ("RATA_FINANZIAMENTI", "Rate nuovi finanziamenti", rata_fin),
             ("RATA_TRIBUTARI", "Rate scadenziari tributari", rata_tributari),
+            ("INVESTIMENTI_FIN", "Investimenti finanziari", investimenti_fin),
             ("TOTALE_USCITE", "Totale uscite", totale_uscite),
         ]
 

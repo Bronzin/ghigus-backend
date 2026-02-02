@@ -23,3 +23,4 @@ from app.db.models.mdm_attivo_schedule import MdmAttivoSchedule  # noqa: F401
 from app.db.models.mdm_finanziamento import MdmNuovoFinanziamento, MdmFinanziamentoSchedule  # noqa: F401
 from app.db.models.mdm_scadenziario_tributario import MdmScadenziarioTributario, MdmScadenziarioTributarioRate  # noqa: F401
 from app.db.models.lkp_conti import LkpContoSP, LkpContoCE  # noqa: F401
+from app.db.models.mdm_imm_fin import MdmImmFinMovimento  # noqa: F401

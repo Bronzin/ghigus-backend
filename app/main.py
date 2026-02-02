@@ -172,3 +172,9 @@ try:
     app.include_router(conti_router)
 except Exception as e:
     print("Warn: conti router not loaded:", e)
+
+try:
+    from app.api.routers.imm_fin import router as imm_fin_router
+    app.include_router(imm_fin_router)
+except Exception as e:
+    print("Warn: imm_fin router not loaded:", e)

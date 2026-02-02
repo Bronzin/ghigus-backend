@@ -43,6 +43,7 @@ from typing import Dict
 
 from app.db.models.mdm_projections import MdmSpProjection, MdmCeProjection
 from app.db.models.final import SpRiclass
+from app.db.models.mdm_imm_fin import MdmImmFinMovimento
 from app.services.assumptions import get_assumptions_or_default
 from app.services.prededuzione import get_prededuzione
 
@@ -125,6 +126,20 @@ def compute_sp_projections(db: Session, case_id: str, scenario_id: str = "base")
     for r in preded_rows:
         preded_by_period[r.period_index] = preded_by_period.get(r.period_index, ZERO) + (r.importo_periodo or ZERO)
 
+    # ── 3b. Movimenti immobilizzazioni finanziarie ──
+    imm_fin_acq_by_period: Dict[int, D] = {}
+    imm_fin_dis_by_period: Dict[int, D] = {}
+    for mov in db.query(MdmImmFinMovimento).filter(
+        MdmImmFinMovimento.case_id == case_id,
+        MdmImmFinMovimento.scenario_id == scenario_id,
+    ).all():
+        pi_mov = mov.period_index
+        amt = mov.importo or ZERO
+        if mov.tipo == "ACQUISIZIONE":
+            imm_fin_acq_by_period[pi_mov] = imm_fin_acq_by_period.get(pi_mov, ZERO) + amt
+        elif mov.tipo == "DISMISSIONE":
+            imm_fin_dis_by_period[pi_mov] = imm_fin_dis_by_period.get(pi_mov, ZERO) + amt
+
     # ── 4. Proiezione rolling ──
     count = 0
 
@@ -162,7 +177,11 @@ def compute_sp_projections(db: Session, case_id: str, scenario_id: str = "base")
         # ── Immobilizzazioni: si riducono per ammortamento ──
         immob_immat = max(immob_immat - ammort_immat, ZERO)
         immob_mat = max(immob_mat - ammort_mat, ZERO)
-        # immob_fin e leasing restano costanti (semplificazione)
+        # Immobilizzazioni finanziarie: update with acquisitions/disposals
+        acq_fin = imm_fin_acq_by_period.get(pi, ZERO)
+        dis_fin = imm_fin_dis_by_period.get(pi, ZERO)
+        immob_fin = immob_fin + acq_fin - dis_fin
+        # leasing resta costante (semplificazione)
 
         # ── Fondi TFR: crescono per accantonamento mensile ──
         fondi = fondi + tfr_accrual
