@@ -200,8 +200,11 @@ class CeDrivers(BaseModel):
       AMMORTAMENTI_IMMATERIALI, AMMORTAMENTI_MATERIALI, ACCANTONAMENTI,
       PROVENTI_STRAORDINARI, ONERI_STRAORDINARI,
       PROVENTI_FINANZIARI, ONERI_FINANZIARI, IMPOSTE
+
+    pct_tfr: percentuale accantonamento TFR sul costo del personale (default 6.91%).
     """
     lines: Dict[str, CeLineDriver] = Field(default_factory=dict)
+    pct_tfr: float = 0.0691
 
 
 # ── Modello complessivo ─────────────────────────────────────

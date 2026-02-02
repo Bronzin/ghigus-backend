@@ -155,12 +155,17 @@ def compute_sp_projections(db: Session, case_id: str, scenario_id: str = "base")
             abs(ce_get(pi, "AMMORT_MAT_ESISTENTI"))
             + abs(ce_get(pi, "AMMORT_MAT_NUOVI"))
         )
+        # TFR accrual from CE (negative in CE → take abs to add to liability)
+        tfr_accrual = abs(ce_get(pi, "ACCANTONAMENTO_TFR"))
         preded_pag = preded_by_period.get(pi, ZERO)
 
         # ── Immobilizzazioni: si riducono per ammortamento ──
         immob_immat = max(immob_immat - ammort_immat, ZERO)
         immob_mat = max(immob_mat - ammort_mat, ZERO)
         # immob_fin e leasing restano costanti (semplificazione)
+
+        # ── Fondi TFR: crescono per accantonamento mensile ──
+        fondi = fondi + tfr_accrual
 
         # ── Debiti breve: si riducono per prededuzioni ──
         debiti_breve = max(debiti_breve - preded_pag, ZERO)

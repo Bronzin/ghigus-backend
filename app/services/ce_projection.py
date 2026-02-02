@@ -87,6 +87,7 @@ CE_STRUCTURE = [
     ("SERVIZI",             "Costi per servizi",                        "COSTI_PRODUZIONE", ["SERVIZI"],                -1, False),
     ("GODIMENTO_TERZI",     "Costi per godimento beni di terzi",        "COSTI_PRODUZIONE", ["GODIMENTO_BENI_TERZI"],   -1, False),
     ("COSTI_PERSONALE",     "Costi del personale",                      "COSTI_PRODUZIONE", ["COSTI_PERSONALE"],        -1, False),
+    ("ACCANTONAMENTO_TFR",  "Accantonamento TFR",                       "COSTI_PRODUZIONE", [],                         -1, False),  # calcolato: COSTI_PERSONALE × pct_tfr
     ("AMMORT_IMMAT_ESISTENTI", "Ammort. immateriali da bilancio",          "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
     ("AMMORT_IMMAT_NUOVI",     "Nuovi ammort. immateriali",                "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
     ("AMMORT_MAT_ESISTENTI",   "Ammort. materiali da bilancio",            "COSTI_PRODUZIONE", [],                          -1, False),  # calcolato
@@ -262,6 +263,9 @@ def compute_ce_projections(
     aliquota_mat = D(str(depr.aliquota_ammort_impianti))
     aliquota_immat = D(str(depr.aliquota_ammort_immateriali))
 
+    # TFR accrual rate
+    pct_tfr = D(str(assumptions.ce_drivers.pct_tfr))
+
     # Old-style base annual depreciation from CE riclass (used as fallback and for new depr via growth)
     ce_base_ammort_mat = abs(ce_base.get("AMMORTAMENTI_MATERIALI", ZERO))
     ce_base_ammort_immat = abs(ce_base.get("AMMORTAMENTI_IMMATERIALI", ZERO))
@@ -319,6 +323,11 @@ def compute_ce_projections(
         amounts["AMMORT_IMMAT_ESISTENTI"] = -monthly_depr_immat_esist
         amounts["AMMORT_IMMAT_NUOVI"] = -monthly_depr_immat_nuovi
 
+        # ── TFR accrual: % of personnel cost ──
+        costi_personale_abs = abs(amounts.get("COSTI_PERSONALE", ZERO))
+        tfr_accrual = (costi_personale_abs * pct_tfr).quantize(D("0.01"))
+        amounts["ACCANTONAMENTO_TFR"] = -tfr_accrual
+
         # ── Override oneri finanziari per convergenza SP↔Banca ──
         if interest_override is not None and pi in interest_override:
             amounts["ONERI_FINANZIARI"] = -abs(interest_override[pi])
@@ -354,6 +363,7 @@ def compute_ce_projections(
             + amounts.get("SERVIZI", ZERO)
             + amounts.get("GODIMENTO_TERZI", ZERO)
             + amounts.get("COSTI_PERSONALE", ZERO)
+            + amounts.get("ACCANTONAMENTO_TFR", ZERO)
             + tot_ammort_lines
             + amounts.get("ACCANTONAMENTI", ZERO)
             + amounts.get("ONERI_DIVERSI", ZERO)
@@ -367,6 +377,7 @@ def compute_ce_projections(
             + amounts.get("SERVIZI", ZERO)
             + amounts.get("GODIMENTO_TERZI", ZERO)
             + amounts.get("COSTI_PERSONALE", ZERO)
+            + amounts.get("ACCANTONAMENTO_TFR", ZERO)
             + amounts.get("ONERI_DIVERSI", ZERO)
             + amounts.get("COSTI_AFFITTO", ZERO)
         )
