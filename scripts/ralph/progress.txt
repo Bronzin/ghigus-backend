@@ -22,6 +22,7 @@ Started: Mon Feb  2 13:01:41 CET 2026
 - CNC AI: cnc_ai.generate_comment() is the main entry point; use_mock defaults to CNC_USE_MOCK env var; mock mode returns Italian placeholder text
 - CNC config: CNC_USE_MOCK, OPENAI_API_KEY, OPENAI_MODEL in app/core/config.py Settings (also read via os.environ in cnc_ai.py for standalone use)
 - CNC generator: `cnc_generator.generate(db, case_id, scenario_id, use_mock)` → BytesIO with PPTX; uses cnc_data_adapter for tables, cnc_ai for comments
+- CNC endpoint: POST /cases/{slug}/genera-cnc → StreamingResponse with PPTX; uses settings.cnc_use_mock; scenario via query param (default "base")
 
 ---
 
@@ -242,4 +243,23 @@ Started: Mon Feb  2 13:01:41 CET 2026
   - _split_comment() breaks on double newlines to preserve paragraph structure
   - Company info comes from Case model (name → nome_azienda, description → settore)
   - The generate() function returns BytesIO — caller is responsible for serving as HTTP response
+---
+
+## 2026-02-02 - BE-011
+- What was implemented:
+  - Created `app/api/routers/cnc.py` with `POST /cases/{slug}/genera-cnc` endpoint
+  - Endpoint resolves case by slug, gets scenario (default "base"), calls `cnc_generator.generate()`
+  - Returns PPTX as StreamingResponse with correct Content-Type and Content-Disposition headers
+  - Filename format: `CNC_Presentazione_{slug}_{timestamp}.pptx`
+  - 404 if case not found, 500 with error detail if generation fails
+  - Uses `settings.cnc_use_mock` from config (already added in BE-009)
+  - Registered router in `app/main.py` with try/except pattern
+- Files changed:
+  - `app/api/routers/cnc.py` (new)
+  - `app/main.py` (added cnc router registration)
+- **Learnings for future iterations:**
+  - CNC generator `generate()` takes case_id as int but internally uses `str(case_id)` — passing slug string works fine
+  - StreamingResponse needs `buf.seek(0)` before returning, since generator leaves position at end
+  - Content-Type for PPTX: `application/vnd.openxmlformats-officedocument.presentationml.presentation`
+  - The endpoint may be slow (~30-60s) with real AI enabled — future iteration could add background task support
 ---

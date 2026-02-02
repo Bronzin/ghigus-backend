@@ -178,3 +178,9 @@ try:
     app.include_router(imm_fin_router)
 except Exception as e:
     print("Warn: imm_fin router not loaded:", e)
+
+try:
+    from app.api.routers.cnc import router as cnc_router
+    app.include_router(cnc_router)
+except Exception as e:
+    print("Warn: cnc router not loaded:", e)
