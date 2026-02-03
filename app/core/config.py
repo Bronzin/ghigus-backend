@@ -1,7 +1,8 @@
 # app/core/config.py
 import secrets
-from typing import List
-from pydantic import Field
+import json
+from typing import List, Union
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -25,6 +26,20 @@ class Settings(BaseSettings):
             "https://www.ghigus.com",
         ]
     )
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            # Try JSON array first
+            if v.startswith("["):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # Otherwise split by comma
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
 
     # DB & Supabase  (campi python in minuscolo, ENV alias MAIUSCOLI)
     database_url: str = Field(..., alias="DATABASE_URL")
