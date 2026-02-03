@@ -24,6 +24,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:5173",
             "https://ghigus.com",
             "https://www.ghigus.com",
+            "https://ghigus-frontend.vercel.app",
         ]
     )
 
