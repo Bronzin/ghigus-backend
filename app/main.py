@@ -48,9 +48,13 @@ dev_origins = [
 # Combine with configured allowed_origins for production
 all_origins = list(set(dev_origins + settings.allowed_origins))
 
+# Regex to also allow all Vercel preview deployments
+vercel_regex = r"https://.*\.vercel\.app"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=all_origins,
+    allow_origin_regex=vercel_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
