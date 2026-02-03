@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -22,6 +23,7 @@ class CaseOut(BaseModel):
     description: Optional[str] = None
     slug: Optional[str] = None
     status: Optional[str] = None
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 

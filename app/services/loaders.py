@@ -471,7 +471,8 @@ def _parse_ixbrl(file_path: str) -> Iterable[Dict]:
     """Parser completo per file iXBRL (inline XBRL in XHTML)."""
     from lxml import etree
 
-    tree = etree.parse(file_path)
+    parser = etree.XMLParser(huge_tree=True)
+    tree = etree.parse(file_path, parser)
     root = tree.getroot()
 
     contexts = _build_context_map(root)
