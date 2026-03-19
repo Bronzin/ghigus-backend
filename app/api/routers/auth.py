@@ -25,6 +25,7 @@ NOTIFY_EMAIL = "alfonso.bronzin@gmail.com"
 
 def _send_login_notification(username: str, ip: str, user_agent: str):
     """Send login notification email in a background thread."""
+    print(f"SMTP_USER='{settings.smtp_user}', SMTP_PASSWORD set={bool(settings.smtp_password)}")
     if not settings.smtp_user or not settings.smtp_password:
         print("SMTP not configured, skipping login notification")
         return
