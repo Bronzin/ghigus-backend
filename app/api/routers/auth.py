@@ -1,5 +1,8 @@
 # app/api/routers/auth.py
-from datetime import timedelta
+import smtplib
+import threading
+from datetime import datetime, timedelta, timezone
+from email.mime.text import MIMEText
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -16,6 +19,41 @@ from app.core.security import (
 )
 from app.db.deps import get_db, get_current_user
 from app.db.models.user import User
+
+NOTIFY_EMAIL = "alfonso.bronzin@gmail.com"
+
+
+def _send_login_notification(username: str, ip: str, user_agent: str):
+    """Send login notification email in a background thread."""
+    if not settings.smtp_user or not settings.smtp_password:
+        print("SMTP not configured, skipping login notification")
+        return
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    body = (
+        f"Nuovo accesso a Ghigus\n"
+        f"{'─' * 40}\n"
+        f"Utente:     {username}\n"
+        f"Data/ora:   {now}\n"
+        f"IP:         {ip}\n"
+        f"Browser:    {user_agent}\n"
+    )
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = f"🔑 Ghigus – Login di {username}"
+    msg["From"] = settings.smtp_user
+    msg["To"] = NOTIFY_EMAIL
+
+    def _send():
+        try:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as srv:
+                srv.starttls()
+                srv.login(settings.smtp_user, settings.smtp_password)
+                srv.sendmail(settings.smtp_user, [NOTIFY_EMAIL], msg.as_string())
+            print(f"Login notification sent for {username}")
+        except Exception as exc:
+            print(f"Failed to send login notification: {exc}")
+
+    threading.Thread(target=_send, daemon=True).start()
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,6 +110,11 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Utente disattivato",
         )
+
+    # Send login notification email (background, non-blocking)
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+    user_agent = request.headers.get("user-agent", "unknown")
+    _send_login_notification(user.username, client_ip, user_agent)
 
     access_token_expires = timedelta(minutes=settings.jwt_expire_minutes)
     access_token = create_access_token(

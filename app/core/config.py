@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     supabase_service_key: str = Field(..., alias="SUPABASE_SERVICE_KEY")
     storage_bucket: str = Field("ghigus-files", alias="STORAGE_BUCKET")
 
+    # SMTP (login notification)
+    smtp_host: str = Field("smtp.gmail.com", alias="SMTP_HOST")
+    smtp_port: int = Field(587, alias="SMTP_PORT")
+    smtp_user: str = Field("", alias="SMTP_USER")
+    smtp_password: str = Field("", alias="SMTP_PASSWORD")
+
     # CNC PowerPoint generation
     cnc_use_mock: bool = Field(True, alias="CNC_USE_MOCK")
     openai_api_key: str = Field("", alias="OPENAI_API_KEY")
